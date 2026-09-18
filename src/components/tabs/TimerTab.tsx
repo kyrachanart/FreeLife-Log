@@ -14,6 +14,8 @@ import {
   TrendingUp,
   Eye,
   EyeOff,
+  DollarSign,
+  PieChart,
 } from 'lucide-react';
 import { Project, TimeSession, TimerBridge } from '../../types';
 import { useTheme } from '../../ThemeContext';
@@ -772,7 +774,27 @@ export const TimerTab: React.FC<TimerTabProps> = ({
         </div>
       )}
 
-      {/* 2-Hour Continuous Work Health Reminder Banner */}
+      {/* Dynamic Active Timer Banner when browsing a different project */}
+      {timerState !== 'idle' && selectedProjectId !== activeProjectId && (
+        <div className="rounded-2xl p-4 bg-emerald-50 dark:bg-emerald-950/40 border-2 border-emerald-500/60 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in duration-200">
+          <div className="flex items-center gap-2.5">
+            <span className="relative flex h-3 w-3 shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+            </span>
+            <span className="text-xs sm:text-sm font-black text-emerald-950 dark:text-emerald-200">
+              ⏱️ 正在為「{projects.find((p) => p.id === activeProjectId)?.name || '當前專案'}」計時中
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSelectedProjectId(activeProjectId)}
+            className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black transition-all cursor-pointer shadow-xs self-end sm:self-auto shrink-0 flex items-center gap-1"
+          >
+            回到計時專案 ➔
+          </button>
+        </div>
+      )}
       {isTwoHourAlertActive && (
         <div className="rounded-3xl p-5 sm:p-6 bg-gradient-to-r from-amber-500/20 via-amber-500/10 to-amber-500/20 border-2 border-amber-500 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4 animate-pulse">
           <div className="flex items-center gap-3">
@@ -823,65 +845,70 @@ export const TimerTab: React.FC<TimerTabProps> = ({
               borderLeftColor: clientColor,
             }}
           >
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-stone-100 dark:border-slate-800">
-              <div className="flex items-center gap-2 flex-1">
-                <span className="text-xs font-bold text-stone-500 dark:text-slate-400 whitespace-nowrap">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-stone-100 dark:border-slate-800">
+              <div className="flex items-center gap-2 flex-1 w-full">
+                <span className="hidden sm:inline-block text-xs font-bold text-stone-500 dark:text-slate-400 whitespace-nowrap">
                   選擇 PROJECT:
                 </span>
                 {projects.length > 0 ? (
-                  <div className="flex items-center gap-2 flex-wrap flex-1 max-w-lg">
+                  <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap flex-1 w-full">
                     <ProjectSelectDropdown
                       projects={projects}
                       selectedProjectId={selectedProjectId}
                       onSelectProject={(id) => handleProjectChangeAttempt(id)}
-                      className="flex-1 min-w-[240px]"
+                      className="w-full sm:flex-1 sm:min-w-[220px]"
                     />
 
-                    {currentProject && (
-                      <button
-                        type="button"
-                        onClick={() => setIsEditModalOpen(true)}
-                        className={`px-3 py-2.5 rounded-xl text-xs font-bold border flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 ${
-                          isWarm
-                            ? 'border-stone-300 hover:bg-stone-100 text-stone-700'
-                            : 'border-slate-700 hover:bg-slate-800 text-slate-300'
-                        }`}
-                        title="編輯此 Project 設定"
-                      >
-                        <Edit2 size={13} />
-                        <span>編輯 Project</span>
-                      </button>
-                    )}
+                    {/* Compact Mobile Row for Buttons */}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {currentProject && (
+                        <button
+                          type="button"
+                          onClick={() => setIsEditModalOpen(true)}
+                          className={`px-2.5 sm:px-3 py-2 rounded-xl text-xs font-bold border flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 ${
+                            isWarm
+                              ? 'border-stone-300 hover:bg-stone-100 text-stone-700'
+                              : 'border-slate-700 hover:bg-slate-800 text-slate-300'
+                          }`}
+                          title="編輯此 Project 設定"
+                        >
+                          <Edit2 size={13} />
+                          <span className="hidden sm:inline">編輯 Project</span>
+                          <span className="sm:hidden">編輯</span>
+                        </button>
+                      )}
+
+                      {onNavigateTab && (
+                        <button
+                          onClick={() => onNavigateTab('calculator')}
+                          className={`px-2.5 sm:px-3 py-2 rounded-xl text-xs font-bold border transition-colors cursor-pointer shrink-0 ${
+                            isWarm
+                              ? 'border-stone-300 hover:bg-stone-100 text-stone-700'
+                              : 'border-slate-700 hover:bg-slate-800 text-slate-300'
+                          }`}
+                          title="前往 Project 總覽"
+                        >
+                          <span className="hidden sm:inline">Project 總覽 →</span>
+                          <span className="sm:hidden">總覽 →</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ) : (
                   <span className="text-xs text-stone-400">尚無 Project，請點擊上方「+ 新增 Project」建立</span>
                 )}
               </div>
-
-              {onNavigateTab && (
-                <button
-                  onClick={() => onNavigateTab('calculator')}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold border transition-colors cursor-pointer ${
-                    isWarm
-                      ? 'border-stone-300 hover:bg-stone-100 text-stone-700'
-                      : 'border-slate-700 hover:bg-slate-800 text-slate-300'
-                  }`}
-                  title="前往 Project 總覽"
-                >
-                  Project 總覽 →
-                </button>
-              )}
             </div>
 
             {/* Prominent Project Title Section */}
             {currentProject && (
-              <div className="pt-4 space-y-2">
-                <div className="flex items-center gap-2.5 flex-wrap">
-                  <h2 className="text-2xl sm:text-3xl font-black text-stone-900 dark:text-slate-100 tracking-tight">
+              <div className="pt-3">
+                <div className="flex items-center gap-2.5 flex-wrap w-full">
+                  <h2 className="text-xl sm:text-2xl font-black text-stone-900 dark:text-slate-100 tracking-tight">
                     {currentProject.name}
                   </h2>
                   <span
-                    className="text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5 border shadow-2xs"
+                    className="text-xs font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1.5 border shadow-2xs"
                     style={{
                       backgroundColor: `${clientColor}18`,
                       color: clientColor,
@@ -892,149 +919,17 @@ export const TimerTab: React.FC<TimerTabProps> = ({
                     <span>Client: {currentProject.clientName}</span>
                   </span>
                   {currentProject.category && (
-                    <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-stone-100 dark:bg-slate-800 text-stone-600 dark:text-slate-300 border border-stone-200 dark:border-slate-700">
+                    <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-stone-100 dark:bg-slate-800 text-stone-600 dark:text-slate-300 border border-stone-200 dark:border-slate-700">
                       {currentProject.category}
                     </span>
                   )}
-                </div>
-
-                {/* 純文字大字體排版，移除膠囊框框，清晰極簡 */}
-                <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap text-xs sm:text-sm text-stone-500 dark:text-slate-400 pt-1">
-                  <span>當前 Project 累計淨工時：</span>
-                  <span className="font-mono text-lg sm:text-xl font-black text-stone-900 dark:text-slate-100 tracking-tight">
-                    {Math.floor(accurateCumulativeMinutes / 60)}h {accurateCumulativeMinutes % 60}m
-                  </span>
-                  <span className="mx-1 text-stone-300 dark:text-slate-700 font-bold">·</span>
-                  <span>總收益：</span>
-                  <span className="font-mono text-lg sm:text-xl font-black text-blue-600 dark:text-blue-400 tracking-tight">
-                    HK$ {currentProject.totalContractAmount.toLocaleString()}
+                  <span className="text-xs font-semibold text-stone-500 dark:text-slate-400 sm:ml-auto flex items-center gap-1 shrink-0">
+                    <span>建立於</span>
+                    <span className="font-mono">{currentProject.createdAt ? currentProject.createdAt.replace(/-/g, '/') : '2026/09/19'}</span>
                   </span>
                 </div>
               </div>
             )}
-
-            {/* 合約總額工時進度條與即時時薪 */}
-            {currentProject && (
-              <div className="pt-4 space-y-2.5">
-                {/* Progress Bar - Only displayed if estimated hours limit is configured and > 0 */}
-                {hasEstimatedHoursLimit && (
-                  <div className="w-full h-3 rounded-full bg-stone-200 dark:bg-slate-800 overflow-hidden relative">
-                    <div
-                      className={`h-full rounded-full transition-all duration-500 ${
-                        isBudgetOver100
-                          ? 'bg-rose-500'
-                          : isBudgetWarning80
-                          ? 'bg-amber-500 animate-pulse'
-                          : 'bg-emerald-600'
-                      }`}
-                      style={{ width: `${Math.min(100, budgetUsagePercent || 0)}%` }}
-                    />
-                    <div
-                      className="absolute top-0 bottom-0 w-0.5 bg-amber-400 z-10 opacity-70"
-                      style={{ left: '80%' }}
-                      title="80% 預算警示線"
-                    />
-                  </div>
-                )}
-
-                {/* 即時時薪 + 預算使用率 + 剩餘安全工時 (位於進度條正下方) */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-0.5">
-                  <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-                    {/* 醒目的即時時薪數據標籤與計算說明 (Direct Visual Hide / Masked when isHourlyRateVisible is false) */}
-                    {(() => {
-                      const isHourlyRateVisible = hourlyRateVisibilityMap && selectedProjectId
-                        ? hourlyRateVisibilityMap[selectedProjectId] !== false
-                        : showHourlyRate;
-
-                      return (
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-1.5">
-                            <span className={`text-xs sm:text-sm font-mono font-black px-3 py-1 rounded-xl border shadow-2xs flex items-center gap-1.5 w-fit ${
-                              isHourlyRateVisible
-                                ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
-                                : 'bg-stone-100 dark:bg-slate-800 text-stone-500 dark:text-slate-400 border-stone-200 dark:border-slate-700'
-                            }`}>
-                              <TrendingUp size={15} className={isHourlyRateVisible ? 'text-emerald-600 dark:text-emerald-400' : 'text-stone-400'} />
-                              <span>
-                                {isHourlyRateVisible ? `即時時薪：${liveRateText}` : '📈 即時計算時薪功能已關閉'}
-                              </span>
-                            </span>
-                            {onToggleShowHourlyRate && (
-                              <button
-                                type="button"
-                                onClick={() => onToggleShowHourlyRate(selectedProjectId)}
-                                className="p-1 rounded-lg text-stone-400 hover:text-stone-600 dark:hover:text-slate-300 hover:bg-stone-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                                title={isHourlyRateVisible ? '點擊隱藏即時時薪' : '點擊顯示即時時薪'}
-                              >
-                                {isHourlyRateVisible ? <Eye size={14} /> : <EyeOff size={14} className="text-stone-500" />}
-                              </button>
-                            )}
-                          </div>
-                          <span className="text-[11px] text-stone-400 dark:text-slate-500 font-normal pl-0.5">
-                            {isHourlyRateVisible
-                              ? (isUnderOneHour ? '💡 累計滿 1 小時後將自動轉換為實質動態時薪' : '💡 根據實質累計工時動態計算')
-                              : '💡 已隱藏即時計算時薪功能，點擊眼睛圖示可還原顯示'}
-                          </span>
-                        </div>
-                      );
-                    })()}
-                
-                {/* 預算使用率 % */}
-                <span className="text-xs font-bold text-stone-700 dark:text-slate-300 flex items-center gap-1">
-                  <span>預算使用率：</span>
-                  {hasEstimatedHoursLimit && budgetUsagePercent !== null ? (
-                    <>
-                      <strong className={isBudgetOver100 ? 'text-rose-600 font-mono text-sm' : 'text-stone-900 dark:text-slate-100 font-mono text-sm'}>
-                        {budgetUsagePercent}%
-                      </strong>
-                      <span className="text-[11px] text-stone-400 font-normal">
-                        ({Math.floor(totalProjectMinutes / 60)}h {totalProjectMinutes % 60}m / {budgetedTotalHours}h)
-                      </span>
-                    </>
-                  ) : (
-                    <span className="text-stone-500 dark:text-slate-400 text-xs font-medium">不設限</span>
-                  )}
-                </span>
-              </div>
-
-              {/* 剩餘安全工時 */}
-              {hasEstimatedHoursLimit && remainingSafeHours !== null ? (
-                <div className="text-xs font-bold text-stone-600 dark:text-slate-400 flex items-center gap-1">
-                  <span>剩餘安全工時：</span>
-                  <strong className={`font-mono text-sm ${remainingSafeHours === 0 ? 'text-rose-600' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                    {remainingSafeHours}h
-                  </strong>
-                </div>
-              ) : (
-                <div className="text-xs text-stone-400 dark:text-slate-500 font-medium">
-                  剩餘安全工時：不設限
-                </div>
-              )}
-            </div>
-
-            {isBudgetWarning80 && (
-              <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-xs font-bold flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5">
-                  <AlertTriangle size={15} className="shrink-0 text-amber-600" />
-                  <span>
-                    工時接近預算上限（已達 {budgetUsagePercent}%，建議評估進度或向 Client 提出追加工時需求）
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {isBudgetOver100 && (
-              <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-300 text-xs font-bold flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5">
-                  <AlertTriangle size={15} className="shrink-0 text-rose-600" />
-                  <span>
-                    ⚠️ 工時超越建議上限（達 {budgetUsagePercent}%），時薪正在下降中！
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
           </div>
         );
       })()}
@@ -1167,7 +1062,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
       </div>
 
       {/* ============================================================ */}
-      {/* 3. CORE TIMER CONTROLS & WORK CONTENT */}
+      {/* 3. CONSOLIDATED TIMER CONTROL PANEL & WORK CONTENT */}
       {/* ============================================================ */}
       <div
         className={`rounded-3xl p-6 sm:p-8 border transition-all ${
@@ -1178,7 +1073,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
         <div className="mb-6 text-left">
           <label className="block text-xs font-bold text-stone-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
             <span className="flex items-center gap-1.5">
-              <span>💼 工作內容</span>
+              <span>💼 工作內容 (Task Content)</span>
             </span>
             <span className="text-[10px] text-stone-400 font-normal">
               按下完成 (Stop) 結算時將自動寫入 Timesheet 工時紀錄
@@ -1307,6 +1202,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
             ⚠️ 請先建立或選擇 Project 才能開始計時
           </p>
         )}
+      </div>
 
         {/* Footer info */}
         <div className="mt-6 pt-4 border-t border-stone-100 dark:border-slate-800/60 flex flex-col sm:flex-row items-center justify-between text-[11px] text-stone-400 dark:text-slate-500 gap-2">
@@ -1321,7 +1217,6 @@ export const TimerTab: React.FC<TimerTabProps> = ({
             ⚡ 測試 2 小時提醒
           </button>
         </div>
-      </div>
 
       {/* Edit Project Modal */}
       {currentProject && (

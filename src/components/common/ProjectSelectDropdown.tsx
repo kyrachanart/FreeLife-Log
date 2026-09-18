@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { ChevronDown, Check, Briefcase } from 'lucide-react';
+import { ChevronDown, ChevronUp, Check } from 'lucide-react';
 import { Project } from '../../types';
 import { useTheme } from '../../ThemeContext';
 import { getClientColor } from '../../utils/clientColors';
@@ -24,6 +24,7 @@ export const ProjectSelectDropdown: React.FC<ProjectSelectDropdownProps> = ({
   const { theme } = useTheme();
   const isWarm = theme === 'warm';
   const [isOpen, setIsOpen] = useState(false);
+  const [expandedClients, setExpandedClients] = useState<Record<string, boolean>>({});
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Close when clicking outside
@@ -58,6 +59,17 @@ export const ProjectSelectDropdown: React.FC<ProjectSelectDropdownProps> = ({
     }
     return map;
   }, [projects]);
+
+  // Auto-expand client group if the active selected project is hidden beyond top 5
+  useEffect(() => {
+    if (!selectedProjectId) return;
+    groupedProjects.forEach((clientProjs, clientName) => {
+      const idx = clientProjs.findIndex((p) => p.id === selectedProjectId);
+      if (idx >= 5) {
+        setExpandedClients((prev) => ({ ...prev, [clientName]: true }));
+      }
+    });
+  }, [selectedProjectId, groupedProjects]);
 
   const currentProject = projects.find((p) => p.id === selectedProjectId);
   const currentClientColor = currentProject
@@ -119,7 +131,7 @@ export const ProjectSelectDropdown: React.FC<ProjectSelectDropdownProps> = ({
       {/* Custom Dropdown Menu */}
       {isOpen && (
         <div
-          className={`absolute left-0 right-0 sm:min-w-[340px] max-w-[480px] mt-1.5 z-50 rounded-2xl border shadow-xl max-h-80 overflow-y-auto overflow-x-hidden p-1.5 transition-all animate-in fade-in zoom-in-95 duration-100 ${
+          className={`absolute left-0 right-0 sm:min-w-[340px] max-w-[480px] mt-1.5 z-50 rounded-2xl border shadow-xl max-h-[350px] overflow-y-auto overflow-x-hidden p-1.5 transition-all animate-in fade-in zoom-in-95 duration-100 ${
             isWarm
               ? 'bg-white border-stone-200 text-stone-900 shadow-stone-900/10'
               : 'bg-slate-900 border-slate-800 text-slate-100 shadow-black/40'
@@ -135,6 +147,11 @@ export const ProjectSelectDropdown: React.FC<ProjectSelectDropdownProps> = ({
                 client,
                 clientProjects[0]?.clientColor || clientProjects[0]?.color
               );
+              const isExpanded = expandedClients[client] || false;
+              const hasMoreThanFive = clientProjects.length > 5;
+              const visibleProjects = hasMoreThanFive && !isExpanded
+                ? clientProjects.slice(0, 5)
+                : clientProjects;
 
               return (
                 <div key={client} className="mb-2 last:mb-0">
@@ -155,7 +172,7 @@ export const ProjectSelectDropdown: React.FC<ProjectSelectDropdownProps> = ({
 
                   {/* Project Items in Group */}
                   <div className="space-y-0.5 pl-1 pr-0.5">
-                    {clientProjects.map((p) => {
+                    {visibleProjects.map((p) => {
                       const isSelected = p.id === selectedProjectId;
                       return (
                         <button
@@ -202,6 +219,28 @@ export const ProjectSelectDropdown: React.FC<ProjectSelectDropdownProps> = ({
                         </button>
                       );
                     })}
+
+                    {/* Collapsible toggle button */}
+                    {hasMoreThanFive && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setExpandedClients((prev) => ({ ...prev, [client]: !isExpanded }));
+                        }}
+                        className={`w-full py-1.5 px-2.5 mt-1 text-center text-[11px] font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border ${
+                          isWarm
+                            ? 'bg-stone-50 hover:bg-stone-100 text-stone-600 border-stone-200'
+                            : 'bg-slate-800/60 hover:bg-slate-800 text-slate-300 border-slate-700/60'
+                        }`}
+                      >
+                        <span>
+                          {isExpanded
+                            ? '收合專案 ▴'
+                            : `展開其餘 ${clientProjects.length - 5} 個專案 ▾`}
+                        </span>
+                      </button>
+                    )}
                   </div>
                 </div>
               );

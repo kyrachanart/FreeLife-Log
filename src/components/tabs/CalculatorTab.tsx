@@ -18,12 +18,14 @@ import {
   Play,
   Eye,
   EyeOff,
+  Layers,
 } from 'lucide-react';
 import { Project, TimeSession, ProjectMemoItem, FreelancerProfile } from '../../types';
 import { useTheme } from '../../ThemeContext';
 import { EditProjectModal } from '../modals/EditProjectModal';
 import { ConfirmDeleteModal } from '../modals/ConfirmDeleteModal';
 import { ConfirmDeleteProjectModal } from '../modals/ConfirmDeleteProjectModal';
+import { BatchDeleteProjectsModal } from '../modals/BatchDeleteProjectsModal';
 import { ProjectSelectDropdown } from '../common/ProjectSelectDropdown';
 import { getClientColor } from '../../utils/clientColors';
 
@@ -32,6 +34,7 @@ interface CalculatorTabProps {
   sessions: TimeSession[];
   onDeleteSession: (sessionId: string) => void;
   onDeleteProject?: (projectId: string) => void;
+  onDeleteProjects?: (projectIds: string[]) => void;
   onUpdateProject: (updatedProject: Project) => void;
   onNavigateTab?: (tabId: string) => void;
   onOpenNewProjectModal?: () => void;
@@ -55,6 +58,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
   sessions,
   onDeleteSession,
   onDeleteProject,
+  onDeleteProjects,
   onUpdateProject,
   onNavigateTab,
   onOpenNewProjectModal,
@@ -102,6 +106,17 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
 
   // Entire Project Deletion Modal States
   const [isDeleteProjectModalOpen, setIsDeleteProjectModalOpen] = useState(false);
+
+  // Batch Projects Deletion Modal State
+  const [isBatchDeleteModalOpen, setIsBatchDeleteModalOpen] = useState(false);
+
+  const handleBatchDeleteProjects = (projectIds: string[]) => {
+    if (onDeleteProjects) {
+      onDeleteProjects(projectIds);
+    } else if (onDeleteProject) {
+      projectIds.forEach((id) => onDeleteProject(id));
+    }
+  };
 
   // Current viewed project
   const currentProject = useMemo(() => {
@@ -442,7 +457,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
               }}
               className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black transition-all cursor-pointer shadow-xs self-end sm:self-auto shrink-0 flex items-center gap-1"
             >
-              回到計時專案 →
+              回到計時專案 ➔
             </button>
           )}
         </div>
@@ -551,13 +566,23 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                     <span>刪除 Project</span>
                   </button>
                 )}
+
+                <button
+                  onClick={() => setIsBatchDeleteModalOpen(true)}
+                  className="px-3 py-1.5 rounded-xl text-xs font-bold border border-rose-300 hover:bg-rose-100 text-rose-800 dark:border-rose-800 dark:hover:bg-rose-900/50 dark:text-rose-300 flex items-center gap-1.5 transition-colors cursor-pointer"
+                  title="開啟批量刪除 Project 管理彈窗"
+                >
+                  <Layers size={13} />
+                  <span>批量刪除 Project</span>
+                </button>
               </div>
             </div>
 
             {/* Project Title Header */}
             <div className="pt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2.5 flex-wrap">
+              <div className="space-y-2 w-full">
+                {/* Line 1: Project Name, Client Badge, Category Badge & Dynamic Created Date */}
+                <div className="flex items-center gap-2.5 flex-wrap w-full">
                   <h2 className="text-2xl sm:text-3xl font-black text-stone-900 dark:text-slate-100 tracking-tight">
                     {currentProject.name}
                   </h2>
@@ -577,9 +602,13 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                       {currentProject.category}
                     </span>
                   )}
+                  <span className="text-xs font-semibold text-stone-500 dark:text-slate-400 sm:ml-auto flex items-center gap-1 shrink-0">
+                    <span>建立於</span>
+                    <span className="font-mono">{currentProject.createdAt ? currentProject.createdAt.replace(/-/g, '/') : '2026/09/19'}</span>
+                  </span>
                 </div>
 
-                {/* 純文字大字體排版，移除膠囊框框，清晰極簡 */}
+                {/* Line 2: Clean metrics with NO trailing date or timesheet count */}
                 <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap text-xs sm:text-sm text-stone-500 dark:text-slate-400 pt-1">
                   <span>當前 Project 累計淨工時：</span>
                   <span className="font-mono text-lg sm:text-xl font-black text-stone-900 dark:text-slate-100 tracking-tight">
@@ -589,9 +618,6 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                   <span>總收益：</span>
                   <span className="font-mono text-lg sm:text-xl font-black text-blue-600 dark:text-blue-400 tracking-tight">
                     HK$ {currentProject.totalContractAmount.toLocaleString()}
-                  </span>
-                  <span className="text-[11px] text-stone-400 dark:text-slate-500 font-normal pl-1">
-                    (建立日期：{currentProject.createdAt || '近期'} · Timesheet 共 {projectSessions.length} 筆)
                   </span>
                 </div>
               </div>
@@ -646,7 +672,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
             </div>
           </div>
 
-          {/* Block 3: 即時有效時薪 (In-Card Toggle with Eye & Hidden Masked Rate) */}
+          {/* Block 3: 即時有效時薪 (In-Card Toggle with Eye & Slider Switch) */}
           {(() => {
             const isHourlyRateVisible = hourlyRateVisibilityMap && viewProjectId
               ? hourlyRateVisibilityMap[viewProjectId] !== false
@@ -654,23 +680,33 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
 
             return (
               <div className="p-5 sm:p-6 flex flex-col justify-between">
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between mb-3 gap-2">
                   <span className="text-xs font-bold text-stone-500 dark:text-slate-400">即時有效時薪</span>
-                  <div className="flex items-center gap-1.5">
-                    {onToggleShowHourlyRate && (
-                      <button
-                        type="button"
-                        onClick={() => onToggleShowHourlyRate(viewProjectId)}
-                        className="p-1.5 rounded-lg text-stone-400 hover:text-stone-600 dark:hover:text-slate-300 hover:bg-stone-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                        title={isHourlyRateVisible ? '點擊隱藏即時時薪' : '點擊顯示即時時薪'}
+                  {onToggleShowHourlyRate && (
+                    <button
+                      type="button"
+                      onClick={() => onToggleShowHourlyRate(viewProjectId)}
+                      className={`px-2.5 py-1 rounded-full text-[11px] font-extrabold flex items-center gap-1.5 border transition-all cursor-pointer shadow-2xs ${
+                        isHourlyRateVisible
+                          ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/60'
+                          : 'bg-stone-100 dark:bg-slate-800 text-stone-500 dark:text-slate-400 border-stone-200 dark:border-slate-700 hover:bg-stone-200 dark:hover:bg-slate-700'
+                      }`}
+                      title={isHourlyRateVisible ? '點擊關閉即時時薪計算' : '點擊開啟即時時薪計算'}
+                    >
+                      {/* Visual Slider Pill Switch Track */}
+                      <span
+                        className={`w-6 h-3.5 rounded-full p-0.5 flex items-center transition-colors shrink-0 ${
+                          isHourlyRateVisible ? 'bg-emerald-600 justify-end' : 'bg-stone-400 dark:bg-slate-600 justify-start'
+                        }`}
                       >
-                        {isHourlyRateVisible ? <Eye size={15} /> : <EyeOff size={15} className="text-stone-500" />}
-                      </button>
-                    )}
-                    <div className="p-2 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400">
-                      <TrendingUp size={16} />
-                    </div>
-                  </div>
+                        <span className="w-2.5 h-2.5 rounded-full bg-white shadow-2xs" />
+                      </span>
+                      <span className="flex items-center gap-1 shrink-0">
+                        {isHourlyRateVisible ? <Eye size={12} /> : <EyeOff size={12} />}
+                        <span>{isHourlyRateVisible ? '顯示計算' : '隱藏計算'}</span>
+                      </span>
+                    </button>
+                  )}
                 </div>
                 <div>
                   {isHourlyRateVisible ? (
@@ -705,7 +741,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                       </div>
                       <div className="text-[11px] text-stone-400 mt-1.5 flex flex-col gap-0.5">
                         <span className="text-[10px] text-stone-400 dark:text-slate-500">
-                          💡 已隱藏即時計算時薪功能，點擊右上角眼睛圖示可還原顯示
+                          💡 已隱藏即時計算時薪功能，點擊右上角「顯示計算」開關可還原顯示
                         </span>
                       </div>
                     </>
@@ -1140,6 +1176,14 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
         onConfirm={handleConfirmDeleteProject}
         project={currentProject}
         sessionCount={projectSessions.length}
+      />
+
+      {/* Batch Delete Projects Modal */}
+      <BatchDeleteProjectsModal
+        isOpen={isBatchDeleteModalOpen}
+        onClose={() => setIsBatchDeleteModalOpen(false)}
+        projects={projects}
+        onConfirmDelete={handleBatchDeleteProjects}
       />
     </div>
   );

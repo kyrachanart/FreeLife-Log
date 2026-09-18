@@ -12,6 +12,7 @@ import {
   Palette,
   Briefcase,
   X,
+  FileText,
 } from 'lucide-react';
 import { Project, TimeSession } from '../../types';
 import { useTheme } from '../../ThemeContext';
@@ -27,6 +28,12 @@ interface ManualEntryTabProps {
   onUpdateProject?: (project: Project) => void;
   activeProjectId?: string;
   setActiveProjectId?: (id: string) => void;
+  timerStatus?: {
+    isRunning: boolean;
+    projectId: string;
+    projectName: string;
+    elapsedFormatted: string;
+  };
 }
 
 export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
@@ -38,9 +45,13 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
   onUpdateProject,
   activeProjectId,
   setActiveProjectId,
+  timerStatus,
 }) => {
   const { theme } = useTheme();
   const isWarm = theme === 'warm';
+
+  // --- Tabbed Entry Mode: 'quick' | 'detailed' ---
+  const [entryMode, setEntryMode] = useState<'quick' | 'detailed'>('quick');
 
   // --- Profession / Role Recommendation State ---
   const [currentProfession, setCurrentProfession] = useState<string>('');
@@ -273,6 +284,44 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
     }
   };
 
+  // Quick Add Minutes Handler (One-Click Time Log)
+  const handleQuickAddMinutes = (addedMins: number, label: string) => {
+    if (!currentProject) {
+      showToast('⚠️ 請先選擇或建立 Project！');
+      return;
+    }
+    const isFixed = currentProject.feeType === 'fixed';
+    const targetHourlyRate = currentProject.targetHourlyRate || 600;
+    const earnedAmount = Math.round((addedMins / 60) * targetHourlyRate);
+    const now = new Date();
+    const startTimeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    const endNow = new Date(now.getTime() + addedMins * 60000);
+    const endTimeStr = `${endNow.getHours().toString().padStart(2, '0')}:${endNow.getMinutes().toString().padStart(2, '0')}`;
+
+    const finalDesc = taskNote.trim() || `快捷加時 (${label})`;
+
+    const newSession: TimeSession = {
+      id: `sess-${Date.now()}`,
+      projectId: currentProject.id,
+      projectName: currentProject.name,
+      clientName: currentProject.clientName,
+      taskDescription: finalDesc,
+      date: workDate || new Date().toISOString().split('T')[0],
+      startTime: startTimeStr,
+      endTime: endTimeStr,
+      workDurationMinutes: addedMins,
+      breakDurationMinutes: 0,
+      effectiveHourlyRate: targetHourlyRate,
+      earnedAmount,
+      status: 'completed',
+      tags: [isFixed ? '合約總額' : 'Hourly'].filter(Boolean),
+    };
+
+    onSaveSession(newSession);
+    setTaskNote('');
+    showToast(`⚡ 成功快捷追加 ${label} (${addedMins} 分鐘) 工時至「${currentProject.name}」！`);
+  };
+
   // Submit manual entry (Default to '專注工作' if blank)
   const handleSubmitManualEntry = (e: React.FormEvent) => {
     e.preventDefault();
@@ -383,6 +432,35 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
         </div>
       )}
 
+      {/* Dynamic Sticky Active Timer Banner */}
+      {timerStatus?.isRunning && (
+        <div className="rounded-2xl p-4 bg-emerald-50 dark:bg-emerald-950/40 border-2 border-emerald-500/60 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in duration-200">
+          <div className="flex items-center gap-2.5">
+            <span className="relative flex h-3 w-3 shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+            </span>
+            <span className="text-xs sm:text-sm font-black text-emerald-950 dark:text-emerald-200">
+              ⏱️ 正在為「{timerStatus.projectName || '當前專案'}」計時中
+            </span>
+          </div>
+          {onNavigateTab && (
+            <button
+              type="button"
+              onClick={() => {
+                if (setActiveProjectId && timerStatus.projectId) {
+                  setActiveProjectId(timerStatus.projectId);
+                }
+                onNavigateTab('timer');
+              }}
+              className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black transition-all cursor-pointer shadow-xs self-end sm:self-auto shrink-0 flex items-center gap-1"
+            >
+              回到計時專案 ➔
+            </button>
+          )}
+        </div>
+      )}
+
       {/* ============================================================ */}
       {/* 1. MANUAL ENTRY FORM */}
       {/* ============================================================ */}
@@ -431,10 +509,111 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
               )}
             </div>
 
-            {/* ============================================================ */}
-            {/* RESTRUCTURED 6-FIELD FORM WITH KEYWORD ASSISTANT UNDER FIELD 6 */}
-            {/* ============================================================ */}
-            <form onSubmit={handleSubmitManualEntry} className="space-y-5">
+            {/* Sub-tab Entry Mode Switcher */}
+            <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-stone-100 dark:bg-slate-800/80 mb-6">
+              <button
+                type="button"
+                onClick={() => setEntryMode('quick')}
+                className={`flex-1 py-2.5 px-3 sm:px-4 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer flex items-center justify-center gap-2 ${
+                  entryMode === 'quick'
+                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
+                    : 'text-stone-600 dark:text-slate-300 hover:text-stone-900 dark:hover:text-white'
+                }`}
+              >
+                <Zap size={16} />
+                <span>一鍵快捷加時 (Quick Time Log)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setEntryMode('detailed')}
+                className={`flex-1 py-2.5 px-3 sm:px-4 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer flex items-center justify-center gap-2 ${
+                  entryMode === 'detailed'
+                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
+                    : 'text-stone-600 dark:text-slate-300 hover:text-stone-900 dark:hover:text-white'
+                }`}
+              >
+                <FileText size={16} />
+                <span>詳細紀錄 (Detailed Entry)</span>
+              </button>
+            </div>
+
+            {/* MODE 1: QUICK TIME LOG */}
+            {entryMode === 'quick' ? (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* 1. 選擇 Project */}
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 dark:text-slate-300 mb-1.5">
+                      1. 選擇追加工時的 Project <span className="text-rose-500">*</span>
+                    </label>
+                    {projects.length > 0 ? (
+                      <ProjectSelectDropdown
+                        projects={projects}
+                        selectedProjectId={selectedProjectId}
+                        onSelectProject={(id) => handleSelectProject(id)}
+                        className="w-full"
+                      />
+                    ) : (
+                      <span className="text-xs text-rose-500 font-bold">尚無 Project</span>
+                    )}
+                  </div>
+
+                  {/* 2. 工作備註 */}
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 dark:text-slate-300 mb-1.5">
+                      2. 工作備註 (選填)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="例：Client 追稿修圖、臨時開會、細節維護..."
+                      value={taskNote}
+                      onChange={(e) => setTaskNote(e.target.value)}
+                      className={`w-full text-xs sm:text-sm font-bold rounded-xl px-3.5 py-2.5 border outline-none transition-colors ${
+                        isWarm
+                          ? 'bg-stone-50 border-stone-300 text-stone-900 focus:bg-white focus:ring-2 focus:ring-emerald-500'
+                          : 'bg-slate-950 border-slate-700 text-slate-100 focus:ring-2 focus:ring-emerald-500'
+                      }`}
+                    />
+                  </div>
+                </div>
+
+                {/* 3. 一鍵累加按鈕矩陣 */}
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 dark:text-slate-300 mb-3">
+                    3. 點擊一鍵直接追加工時至 Timesheet：
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+                    {[
+                      { label: '+15m', mins: 15 },
+                      { label: '+30m', mins: 30 },
+                      { label: '+1h', mins: 60 },
+                      { label: '+2h', mins: 120 },
+                      { label: '+3h', mins: 180 },
+                      { label: '+4h', mins: 240 },
+                    ].map((item) => (
+                      <button
+                        key={item.label}
+                        type="button"
+                        onClick={() => handleQuickAddMinutes(item.mins, item.label)}
+                        disabled={!currentProject}
+                        className={`py-4 px-3 rounded-2xl border font-black flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
+                          isWarm
+                            ? 'bg-emerald-50/80 hover:bg-emerald-100 border-emerald-300 text-emerald-800 shadow-2xs hover:scale-103'
+                            : 'bg-emerald-950/40 hover:bg-emerald-900/60 border-emerald-800 text-emerald-300 shadow-2xs hover:scale-103'
+                        }`}
+                      >
+                        <span className="text-lg font-black">{item.label}</span>
+                        <span className="text-[10px] font-normal opacity-80">
+                          ({item.mins} 分鐘)
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* MODE 2: DETAILED FORM */
+              <form onSubmit={handleSubmitManualEntry} className="space-y-5">
               {/* Row 1: Field 1 (選擇 Client & Project *) & Field 2 (工作日期 *) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* 1. 選擇 Client & Project * (按 Client 分組) */}
@@ -732,6 +911,7 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
             </button>
           </div>
             </form>
+            )}
           </div>
         );
       })()}

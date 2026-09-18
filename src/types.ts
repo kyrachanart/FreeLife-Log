@@ -20,6 +20,7 @@ export interface Project {
   color: string;
   clientColor?: string;
   status: 'active' | 'completed' | 'paused';
+  createdAt?: string;
   deadline?: string;
   memo?: string; // 專案專屬持久備忘筆記
   memos?: ProjectMemoItem[]; // 專案專屬備忘筆記歷史列表

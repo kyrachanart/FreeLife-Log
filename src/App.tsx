@@ -206,6 +206,14 @@ function AppContent() {
     setSessions((prev) => prev.filter((s) => s.projectId !== projectId));
   }, [showToast]);
 
+  // Delete multiple Projects and their associated Timesheet records
+  const handleDeleteProjects = useCallback((projectIds: string[]) => {
+    if (projectIds.length === 0) return;
+    setProjects((prev) => prev.filter((p) => !projectIds.includes(p.id)));
+    setSessions((prev) => prev.filter((s) => !projectIds.includes(s.projectId)));
+    showToast(`🗑️ 已成功一鍵刪除 ${projectIds.length} 個 Project 及旗下工時紀錄！`);
+  }, [showToast]);
+
   // Update a project
   const handleUpdateProject = useCallback((updatedProject: Project) => {
     setProjects((prev) =>
@@ -417,15 +425,15 @@ function AppContent() {
             {/* Clear All Data with Modal Confirmation - Explicitly labelled "重置紀錄" */}
             <button
               onClick={() => setIsClearModalOpen(true)}
-              className={`px-3 py-2 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
+              className={`px-2.5 sm:px-3 py-2 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 whitespace-nowrap ${
                 isWarm
                   ? 'border-rose-300 bg-rose-50/70 hover:bg-rose-100 text-rose-700'
                   : 'border-rose-900/80 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300'
               }`}
               title="清空所有紀錄與資料（含防呆確認）"
             >
-              <RotateCcw size={14} />
-              <span>重置紀錄</span>
+              <RotateCcw size={14} className="shrink-0" />
+              <span className="hidden sm:inline">重置紀錄</span>
             </button>
           </div>
         </div>
@@ -507,6 +515,7 @@ function AppContent() {
             sessions={sessions}
             onDeleteSession={handleDeleteSession}
             onDeleteProject={handleDeleteProject}
+            onDeleteProjects={handleDeleteProjects}
             onUpdateProject={handleUpdateProject}
             onNavigateTab={setActiveTab}
             onOpenNewProjectModal={handleTriggerNewProject}
@@ -540,6 +549,16 @@ function AppContent() {
             onUpdateProject={handleUpdateProject}
             activeProjectId={activeProjectId}
             setActiveProjectId={setActiveProjectId}
+            timerStatus={
+              timerBridge
+                ? {
+                    isRunning: timerBridge.isRunning,
+                    projectId: timerBridge.projectId,
+                    projectName: timerBridge.projectName,
+                    elapsedFormatted: timerBridge.elapsedFormatted,
+                  }
+                : undefined
+            }
           />
         </div>
       </main>
@@ -578,6 +597,15 @@ function AppContent() {
         onStopAndSave={handleInterceptionStopAndSave}
         onDiscardAndProceed={handleInterceptionDiscard}
       />
+
+      {/* Creator Footer */}
+      <footer className={`py-6 mt-12 text-center text-xs border-t transition-colors ${
+        isWarm ? 'border-stone-200/60 text-stone-400' : 'border-slate-800/60 text-slate-500'
+      }`}>
+        <p className="tracking-wide font-normal">
+          Created by <span className="font-medium text-stone-500 dark:text-slate-400">Kyra Chan</span>
+        </p>
+      </footer>
     </div>
   );
 }
