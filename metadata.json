@@ -1,0 +1,6 @@
+{
+  "name": "FreeLife Log",
+  "description": "專為 Freelancer 設計的極簡工時追蹤與合約總額預算管理系統，支援精準計時、目標時薪底線防護、手動補記工時與改稿追加報價計算",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

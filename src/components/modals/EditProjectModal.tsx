@@ -1,0 +1,329 @@
+import React, { useState, useEffect } from 'react';
+import { Edit2, X, Briefcase, DollarSign, Clock, Tag, Palette, Check } from 'lucide-react';
+import { Project, ProjectFeeType } from '../../types';
+import { useTheme } from '../../ThemeContext';
+import { getRecentCategories, saveRecentCategory } from '../../utils/storage';
+import { PRESET_CLIENT_COLORS, getClientColor, saveClientColor } from '../../utils/clientColors';
+
+interface EditProjectModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  project: Project | null;
+  onUpdateProject: (project: Project) => void;
+}
+
+export const EditProjectModal: React.FC<EditProjectModalProps> = ({
+  isOpen,
+  onClose,
+  project,
+  onUpdateProject,
+}) => {
+  const { theme } = useTheme();
+  const isWarm = theme === 'warm';
+
+  const [name, setName] = useState('');
+  const [clientName, setClientName] = useState('');
+  const [clientColor, setClientColor] = useState<string>(PRESET_CLIENT_COLORS[0].hex);
+  const [category, setCategory] = useState('');
+  const [recentCategories, setRecentCategories] = useState<string[]>([]);
+  const [totalContractAmount, setTotalContractAmount] = useState<number | string>(25000);
+  const [estimatedHours, setEstimatedHours] = useState<number | string>('');
+
+  useEffect(() => {
+    if (project && isOpen) {
+      setName(project.name);
+      setClientName(project.clientName);
+      setClientColor(project.clientColor || project.color || getClientColor(project.clientName));
+      setCategory(project.category || '');
+      setRecentCategories(getRecentCategories());
+      setTotalContractAmount(project.totalContractAmount ?? 0);
+      setEstimatedHours(
+        project.estimatedHours !== undefined && project.estimatedHours !== null
+          ? project.estimatedHours
+          : ''
+      );
+    }
+  }, [project, isOpen]);
+
+  if (!isOpen || !project) return null;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || !clientName.trim()) return;
+
+    if (category.trim()) {
+      saveRecentCategory(category.trim());
+    }
+
+    const finalColor = clientColor.trim().startsWith('#') ? clientColor.trim() : getClientColor(clientName.trim());
+    saveClientColor(clientName.trim(), finalColor);
+
+    const parsedContractAmount = totalContractAmount === '' ? 0 : Number(totalContractAmount) || 0;
+    const parsedEstimatedHours = estimatedHours === '' ? undefined : Number(estimatedHours);
+
+    const updated: Project = {
+      ...project,
+      name: name.trim(),
+      clientName: clientName.trim(),
+      clientColor: finalColor,
+      color: finalColor,
+      category: category.trim() || 'General',
+      feeType: 'fixed',
+      totalContractAmount: parsedContractAmount,
+      targetHourlyRate: 0,
+      estimatedHours: parsedEstimatedHours,
+    };
+
+    onUpdateProject(updated);
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+      <div
+        className={`w-full max-w-md rounded-3xl p-6 border shadow-2xl transition-all ${
+          isWarm ? 'bg-white border-stone-200 text-stone-900' : 'bg-slate-900 border-slate-800 text-slate-100'
+        }`}
+      >
+        <div className="flex items-center justify-between pb-4 border-b border-stone-200 dark:border-slate-800">
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-xl bg-emerald-600 text-white">
+              <Edit2 size={18} />
+            </div>
+            <h3 className="font-bold text-base">編輯 Project</h3>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-xl text-stone-400 hover:text-stone-600 hover:bg-stone-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+          <div>
+            <label className="block text-xs font-bold text-stone-500 dark:text-slate-400 mb-1">
+              Project 名稱 <span className="text-rose-500">*</span>
+            </label>
+            <input
+              type="text"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className={`w-full text-xs sm:text-sm rounded-xl px-3.5 py-2.5 border outline-none ${
+                isWarm
+                  ? 'bg-stone-50 border-stone-300 text-stone-900 focus:ring-2 focus:ring-emerald-500'
+                  : 'bg-slate-950 border-slate-700 text-slate-100 focus:ring-2 focus:ring-emerald-500'
+              }`}
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-stone-500 dark:text-slate-400 mb-1">
+              Client 名稱 <span className="text-rose-500">*</span>
+            </label>
+            <input
+              type="text"
+              required
+              value={clientName}
+              onChange={(e) => setClientName(e.target.value)}
+              className={`w-full text-xs sm:text-sm rounded-xl px-3.5 py-2.5 border outline-none ${
+                isWarm
+                  ? 'bg-stone-50 border-stone-300 text-stone-900 focus:ring-2 focus:ring-emerald-500'
+                  : 'bg-slate-950 border-slate-700 text-slate-100 focus:ring-2 focus:ring-emerald-500'
+              }`}
+            />
+
+            {/* Client 代表色 / 標籤顏色選擇器 */}
+            <div className="pt-2">
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-bold text-stone-500 dark:text-slate-400 flex items-center gap-1.5">
+                  <Palette size={13} className="text-emerald-600 dark:text-emerald-400" />
+                  <span>客戶代表色 / 標籤顏色</span>
+                </label>
+                {/* Visual preview badge */}
+                <div
+                  className="px-2 py-0.5 rounded-full text-[11px] font-bold flex items-center gap-1.5 border"
+                  style={{
+                    backgroundColor: `${clientColor}18`,
+                    color: clientColor,
+                    borderColor: `${clientColor}40`,
+                  }}
+                >
+                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: clientColor }} />
+                  <span>{clientName || '預覽'}</span>
+                </div>
+              </div>
+
+              {/* 8 Preset Color Circles + Custom Hex Input */}
+              <div className="flex items-center gap-2 flex-wrap mt-1">
+                {PRESET_CLIENT_COLORS.map((preset) => {
+                  const isSelected = clientColor.toLowerCase() === preset.hex.toLowerCase();
+                  return (
+                    <button
+                      key={preset.hex}
+                      type="button"
+                      onClick={() => setClientColor(preset.hex)}
+                      title={preset.name}
+                      className={`w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer relative ${
+                        isSelected
+                          ? 'ring-2 ring-offset-2 ring-emerald-500 scale-110 shadow-sm'
+                          : 'hover:scale-105 opacity-85 hover:opacity-100'
+                      }`}
+                      style={{ backgroundColor: preset.hex }}
+                    >
+                      {isSelected && <Check size={14} className="text-white drop-shadow-xs" strokeWidth={3} />}
+                    </button>
+                  );
+                })}
+
+                {/* Custom Color Picker input */}
+                <div className="relative flex items-center ml-1">
+                  <input
+                    type="color"
+                    value={clientColor.startsWith('#') ? clientColor : '#2563EB'}
+                    onChange={(e) => setClientColor(e.target.value)}
+                    className="w-7 h-7 rounded-full cursor-pointer opacity-0 absolute inset-0"
+                    title="自訂色碼"
+                  />
+                  <div
+                    className="w-7 h-7 rounded-full border border-dashed border-stone-400 dark:border-slate-600 flex items-center justify-center text-[10px] font-bold text-stone-500 dark:text-slate-400 hover:border-emerald-500 transition-colors pointer-events-none"
+                    style={{
+                      borderColor: !PRESET_CLIENT_COLORS.some((c) => c.hex.toLowerCase() === clientColor.toLowerCase())
+                        ? clientColor
+                        : undefined,
+                    }}
+                  >
+                    自訂
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-bold text-stone-500 dark:text-slate-400">
+                專案類型 / 領域
+              </label>
+              <span className="text-[10px] text-stone-400 font-normal">選填</span>
+            </div>
+            <input
+              type="text"
+              placeholder="例：插畫、平面設計、排版..."
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className={`w-full text-xs sm:text-sm rounded-xl px-3.5 py-2.5 border outline-none ${
+                isWarm
+                  ? 'bg-stone-50 border-stone-300 text-stone-900 focus:ring-2 focus:ring-emerald-500'
+                  : 'bg-slate-950 border-slate-700 text-slate-100 focus:ring-2 focus:ring-emerald-500'
+              }`}
+            />
+            {/* 最近使用標籤 Chip Buttons */}
+            {recentCategories.length > 0 && (
+              <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                <span className="text-[11px] font-bold text-stone-400 flex items-center gap-1 shrink-0">
+                  <Tag size={12} /> 最近使用：
+                </span>
+                {recentCategories.map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => setCategory(tag)}
+                    className={`text-[11px] font-medium px-2.5 py-0.5 rounded-lg border transition-all cursor-pointer ${
+                      category === tag
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                        : isWarm
+                        ? 'bg-stone-100 hover:bg-stone-200 text-stone-700 border-stone-200'
+                        : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+                    }`}
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-stone-500 dark:text-slate-400 mb-1">
+                專案合約總額 (HKD) <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="any"
+                required
+                value={totalContractAmount}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => setTotalContractAmount(e.target.value === '' ? '' : e.target.value)}
+                className={`w-full text-xs sm:text-sm font-mono font-bold rounded-xl px-3.5 py-2.5 border outline-none ${
+                  isWarm
+                    ? 'bg-stone-50 border-stone-300 text-stone-900 focus:ring-2 focus:ring-emerald-500'
+                    : 'bg-slate-950 border-slate-700 text-slate-100 focus:ring-2 focus:ring-emerald-500'
+                }`}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-stone-500 dark:text-slate-400 mb-1">
+                建議總工時上限 (小時)
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="any"
+                placeholder="例：35"
+                value={estimatedHours}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => setEstimatedHours(e.target.value === '' ? '' : e.target.value)}
+                className={`w-full text-xs sm:text-sm font-mono font-bold rounded-xl px-3.5 py-2.5 border outline-none ${
+                  isWarm
+                    ? 'bg-stone-50 border-stone-300 text-stone-900 focus:ring-2 focus:ring-emerald-500'
+                    : 'bg-slate-950 border-slate-700 text-slate-100 focus:ring-2 focus:ring-emerald-500'
+                }`}
+              />
+            </div>
+          </div>
+
+          {/* 即時時薪試算提示 */}
+          {Number(estimatedHours) > 0 ? (
+            <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between text-xs text-emerald-800 dark:text-emerald-300">
+              <span className="flex items-center gap-1.5 font-bold">
+                <span>💡 預估目標時薪：</span>
+                <span className="font-mono text-sm font-black text-emerald-700 dark:text-emerald-300">
+                  HK$ {((Number(totalContractAmount) || 0) / Number(estimatedHours)).toFixed(1)} / h
+                </span>
+              </span>
+              <span className="text-[11px] opacity-80 font-mono">
+                (合約總額 HK$ {(Number(totalContractAmount) || 0).toLocaleString()} ÷ {Number(estimatedHours)} 小時)
+              </span>
+            </div>
+          ) : (
+            <p className="text-[11px] text-stone-400">
+              💡 系統將根據「合約總額 ÷ 實質累計工時」動態計算即時時薪。
+            </p>
+          )}
+
+          <div className="pt-2 flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold border ${
+                isWarm ? 'border-stone-300 text-stone-700' : 'border-slate-700 text-slate-300'
+              }`}
+            >
+              取消
+            </button>
+            <button
+              type="submit"
+              className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/30"
+            >
+              儲存變更
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
