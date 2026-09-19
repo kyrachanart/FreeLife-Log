@@ -939,7 +939,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
         const displayProj = currentProject;
         const clientColor = displayProj
           ? getClientColor(displayProj.clientName, displayProj.clientColor || displayProj.color)
-          : '#2563EB';
+          : '#E2E8F0';
         const formattedDate = displayProj?.createdAt
           ? displayProj.createdAt.replace(/-/g, '/')
           : '2026/09/19';
@@ -994,7 +994,21 @@ export const TimerTab: React.FC<TimerTabProps> = ({
                 )}
               </div>
             ) : (
-              <span className="text-xs text-stone-400">尚無 Project，請點擊上方「+ 新增 Project」建立</span>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 w-full py-1">
+                <span className="text-xs font-semibold text-stone-500 dark:text-slate-400">
+                  尚無 Project，請先建立 Project 即可開始專注計時
+                </span>
+                {onOpenNewProjectModal && (
+                  <button
+                    type="button"
+                    onClick={onOpenNewProjectModal}
+                    className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1 transition-all shadow-xs cursor-pointer shrink-0"
+                  >
+                    <Plus size={14} />
+                    <span>新增 Project</span>
+                  </button>
+                )}
+              </div>
             )}
           </div>
         );

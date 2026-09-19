@@ -12,6 +12,7 @@ import {
   Pause,
   Square,
   Coffee,
+  Plus,
 } from 'lucide-react';
 import { ThemeProvider, useTheme } from './ThemeContext';
 import { Project, TimeSession, FreelancerProfile, TimerBridge } from './types';
@@ -523,16 +524,15 @@ function AppContent() {
               </div>
             </button>
 
-            {/* Prominent New Project Button (With Timer Interception Safeguard) - Hidden during empty state */}
-            {projects.length > 0 && (
-              <button
-                onClick={handleTriggerNewProject}
-                className="h-9 px-4 rounded-xl text-xs sm:text-sm font-black bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center transition-all shadow-md shadow-emerald-600/20 cursor-pointer hover:scale-102"
-                title="創建新的 Project"
-              >
-                <span>＋ 新增 Project</span>
-              </button>
-            )}
+            {/* Prominent New Project Button (With Timer Interception Safeguard) - Always visible (display: flex) */}
+            <button
+              onClick={handleTriggerNewProject}
+              className="h-9 px-2.5 sm:px-4 rounded-xl text-xs sm:text-sm font-black bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center gap-1 transition-all shadow-md shadow-emerald-600/20 cursor-pointer hover:scale-102 shrink-0 whitespace-nowrap"
+              title="創建新的 Project"
+            >
+              <Plus size={15} className="shrink-0" />
+              <span>新增 Project</span>
+            </button>
 
             {/* Clear All Data with Modal Confirmation - Explicitly labelled "重置紀錄" */}
             <button

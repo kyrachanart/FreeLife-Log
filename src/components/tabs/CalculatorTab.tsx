@@ -494,7 +494,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
               className="px-6 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm flex items-center gap-2 mx-auto cursor-pointer shadow-lg shadow-emerald-600/30"
             >
               <Plus size={18} />
-              <span>＋ 立即新增 Project</span>
+              <span>立即新增 Project</span>
             </button>
           )}
         </div>

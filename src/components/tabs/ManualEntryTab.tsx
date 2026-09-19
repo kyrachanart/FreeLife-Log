@@ -177,7 +177,7 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
 
   const clientColor = currentProject
     ? getClientColor(currentProject.clientName, currentProject.clientColor || currentProject.color)
-    : '#2563EB';
+    : '#E2E8F0';
 
   const showToast = (msg: string, forcedType?: 'focus' | 'break') => {
     const isRest = forcedType === 'break' || (!forcedType && (msg.includes('休息') || msg.includes('☕')));
@@ -545,10 +545,14 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
         className={`rounded-3xl p-6 sm:p-8 border transition-all ${
           isWarm ? 'bg-white border-stone-200 shadow-sm' : 'bg-slate-900 border-slate-800'
         }`}
-        style={{
-          borderLeftWidth: '4px',
-          borderLeftColor: clientColor,
-        }}
+        style={
+          currentProject
+            ? {
+                borderLeftWidth: '4px',
+                borderLeftColor: clientColor,
+              }
+            : undefined
+        }
       >
             {/* Clean Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-5 border-b border-stone-100 dark:border-slate-800 mb-6 gap-3">
