@@ -16,12 +16,18 @@ import {
   EyeOff,
   DollarSign,
   PieChart,
+  MoreVertical,
+  BarChart3,
+  Layers,
+  FolderMinus,
+  Square,
 } from 'lucide-react';
 import { Project, TimeSession, TimerBridge } from '../../types';
 import { useTheme } from '../../ThemeContext';
 import { EditProjectModal } from '../modals/EditProjectModal';
 import { TimerRunningInterceptionModal } from '../modals/TimerRunningInterceptionModal';
 import { ProjectSelectDropdown } from '../common/ProjectSelectDropdown';
+import { ProjectHeader } from '../common/ProjectHeader';
 import { getClientColor } from '../../utils/clientColors';
 import {
   LOCAL_STORAGE_KEYS,
@@ -77,6 +83,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
   const isWarm = theme === 'warm';
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
 
   // 1. Load active timer state from localStorage
   const savedTimer = loadFromLocalStorage<ActiveTimerSaveState | null>(
@@ -845,91 +852,33 @@ export const TimerTab: React.FC<TimerTabProps> = ({
               borderLeftColor: clientColor,
             }}
           >
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-stone-100 dark:border-slate-800">
-              <div className="flex items-center gap-2 flex-1 w-full">
-                <span className="hidden sm:inline-block text-xs font-bold text-stone-500 dark:text-slate-400 whitespace-nowrap">
-                  選擇 PROJECT:
-                </span>
-                {projects.length > 0 ? (
-                  <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap flex-1 w-full">
-                    <ProjectSelectDropdown
-                      projects={projects}
-                      selectedProjectId={selectedProjectId}
-                      onSelectProject={(id) => handleProjectChangeAttempt(id)}
-                      className="w-full sm:flex-1 sm:min-w-[220px]"
-                    />
-
-                    {/* Compact Mobile Row for Buttons */}
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {currentProject && (
-                        <button
-                          type="button"
-                          onClick={() => setIsEditModalOpen(true)}
-                          className={`px-2.5 sm:px-3 py-2 rounded-xl text-xs font-bold border flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 ${
-                            isWarm
-                              ? 'border-stone-300 hover:bg-stone-100 text-stone-700'
-                              : 'border-slate-700 hover:bg-slate-800 text-slate-300'
-                          }`}
-                          title="編輯此 Project 設定"
-                        >
-                          <Edit2 size={13} />
-                          <span className="hidden sm:inline">編輯 Project</span>
-                          <span className="sm:hidden">編輯</span>
-                        </button>
-                      )}
-
-                      {onNavigateTab && (
-                        <button
-                          onClick={() => onNavigateTab('calculator')}
-                          className={`px-2.5 sm:px-3 py-2 rounded-xl text-xs font-bold border transition-colors cursor-pointer shrink-0 ${
-                            isWarm
-                              ? 'border-stone-300 hover:bg-stone-100 text-stone-700'
-                              : 'border-slate-700 hover:bg-slate-800 text-slate-300'
-                          }`}
-                          title="前往 Project 總覽"
-                        >
-                          <span className="hidden sm:inline">Project 總覽 →</span>
-                          <span className="sm:hidden">總覽 →</span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <span className="text-xs text-stone-400">尚無 Project，請點擊上方「+ 新增 Project」建立</span>
-                )}
-              </div>
-            </div>
-
-            {/* Prominent Project Title Section */}
-            {currentProject && (
-              <div className="pt-3">
-                <div className="flex items-center gap-2.5 flex-wrap w-full">
-                  <h2 className="text-xl sm:text-2xl font-black text-stone-900 dark:text-slate-100 tracking-tight">
-                    {currentProject.name}
-                  </h2>
-                  <span
-                    className="text-xs font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1.5 border shadow-2xs"
-                    style={{
-                      backgroundColor: `${clientColor}18`,
-                      color: clientColor,
-                      borderColor: `${clientColor}40`,
-                    }}
-                  >
-                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: clientColor }} />
-                    <span>Client: {currentProject.clientName}</span>
+            <div className="space-y-3">
+              {projects.length > 0 ? (
+                <div className="flex items-center gap-2 w-full">
+                  {/* Left: Project dropdown selector */}
+                  <span className="text-xs font-bold text-stone-500 dark:text-slate-400 whitespace-nowrap shrink-0">
+                    選擇 PROJECT:
                   </span>
-                  {currentProject.category && (
-                    <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-stone-100 dark:bg-slate-800 text-stone-600 dark:text-slate-300 border border-stone-200 dark:border-slate-700">
-                      {currentProject.category}
-                    </span>
-                  )}
-                  <span className="text-xs font-semibold text-stone-500 dark:text-slate-400 sm:ml-auto flex items-center gap-1 shrink-0">
-                    <span>建立於</span>
-                    <span className="font-mono">{currentProject.createdAt ? currentProject.createdAt.replace(/-/g, '/') : '2026/09/19'}</span>
-                  </span>
+                  <ProjectSelectDropdown
+                    projects={projects}
+                    selectedProjectId={selectedProjectId}
+                    onSelectProject={(id) => handleProjectChangeAttempt(id)}
+                    className="w-full max-w-sm sm:max-w-md"
+                  />
                 </div>
-              </div>
-            )}
+              ) : (
+                <span className="text-xs text-stone-400">尚無 Project，請點擊上方「+ 新增 Project」建立</span>
+              )}
+
+              {/* Client & Category Tags via unified ProjectHeader */}
+              {currentProject && (
+                <ProjectHeader
+                  project={currentProject}
+                  showTitle={false}
+                  className="pt-2.5 border-t border-stone-100 dark:border-slate-800"
+                />
+              )}
+            </div>
           </div>
         );
       })()}
@@ -1069,101 +1018,11 @@ export const TimerTab: React.FC<TimerTabProps> = ({
           isWarm ? 'bg-white border-stone-200 shadow-sm' : 'bg-slate-900 border-slate-800'
         }`}
       >
-        {/* Work Content Input */}
-        <div className="mb-6 text-left">
-          <label className="block text-xs font-bold text-stone-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
-            <span className="flex items-center gap-1.5">
-              <span>💼 工作內容 (Task Content)</span>
-            </span>
-            <span className="text-[10px] text-stone-400 font-normal">
-              按下完成 (Stop) 結算時將自動寫入 Timesheet 工時紀錄
-            </span>
-          </label>
-          <input
-            type="text"
-            placeholder="例：封面插畫草稿、Client 追稿、開meeting、排版校對..."
-            value={taskNote}
-            onChange={(e) => setTaskNote(e.target.value)}
-            className={`w-full text-xs sm:text-sm rounded-2xl px-4 py-3 border outline-none transition-all ${
-              isWarm
-                ? 'bg-stone-50 border-stone-300 text-stone-900 focus:bg-white focus:ring-2 focus:ring-emerald-500'
-                : 'bg-slate-950 border-slate-700 text-slate-100 focus:ring-2 focus:ring-emerald-500'
-            }`}
-          />
-        </div>
-
-        <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-5 text-center">
-          {timerState === 'working' ? (
-            <>
-              {/* ENHANCED BREAK BUTTON */}
-              <button
-                onClick={handlePause}
-                className="flex-1 min-w-[180px] max-w-sm py-4 sm:py-5 px-6 rounded-3xl font-black text-base sm:text-lg bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-xl shadow-orange-500/25 flex items-center justify-center gap-2.5 transition-all cursor-pointer hover:scale-102 active:scale-98"
-              >
-                <Coffee size={22} />
-                <span>休息 (Break)</span>
-              </button>
-
-              {/* ENHANCED STOP / COMPLETE BUTTON */}
-              <button
-                onClick={handleRecord}
-                className="flex-1 min-w-[180px] max-w-sm py-4 sm:py-5 px-6 rounded-3xl font-black text-base sm:text-lg bg-stone-900 hover:bg-black text-white dark:bg-white dark:text-stone-950 dark:hover:bg-slate-100 shadow-xl shadow-stone-900/20 flex items-center justify-center gap-2.5 transition-all cursor-pointer hover:scale-102 active:scale-98"
-              >
-                <CheckCircle2 size={22} />
-                <span>完成 (Stop)</span>
-              </button>
-
-              {/* SAFE RESET BUTTON */}
-              <button
-                onClick={handleResetTimer}
-                className={`py-4 sm:py-5 px-4 rounded-3xl border font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                  isWarm
-                    ? 'border-stone-300 hover:bg-stone-100 text-stone-600'
-                    : 'border-slate-700 hover:bg-slate-800 text-slate-300'
-                }`}
-                title="重置當前計時器（保留 Project）"
-              >
-                <RotateCcw size={16} />
-                <span>重置</span>
-              </button>
-            </>
-          ) : timerState === 'resting' ? (
-            <>
-              {/* ENHANCED RESUME BUTTON */}
-              <button
-                onClick={handleStart}
-                className="flex-1 min-w-[180px] max-w-sm py-4 sm:py-5 px-6 rounded-3xl font-black text-base sm:text-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-xl shadow-emerald-600/30 flex items-center justify-center gap-2.5 transition-all cursor-pointer hover:scale-102 active:scale-98"
-              >
-                <Play size={22} fill="currentColor" />
-                <span>繼續開工 (Resume)</span>
-              </button>
-
-              {/* ENHANCED STOP / COMPLETE BUTTON */}
-              <button
-                onClick={handleRecord}
-                className="flex-1 min-w-[180px] max-w-sm py-4 sm:py-5 px-6 rounded-3xl font-black text-base sm:text-lg bg-stone-900 hover:bg-black text-white dark:bg-white dark:text-stone-950 dark:hover:bg-slate-100 shadow-xl shadow-stone-900/20 flex items-center justify-center gap-2.5 transition-all cursor-pointer hover:scale-102 active:scale-98"
-              >
-                <CheckCircle2 size={22} />
-                <span>完成 (Stop)</span>
-              </button>
-
-              {/* SAFE RESET BUTTON */}
-              <button
-                onClick={handleResetTimer}
-                className={`py-4 sm:py-5 px-4 rounded-3xl border font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                  isWarm
-                    ? 'border-stone-300 hover:bg-stone-100 text-stone-600'
-                    : 'border-slate-700 hover:bg-slate-800 text-slate-300'
-                }`}
-                title="重置當前計時器（保留 Project）"
-              >
-                <RotateCcw size={16} />
-                <span>重置</span>
-              </button>
-            </>
-          ) : (
+        {/* UNIFIED CONTROLS ACCORDING TO TIMER STATE */}
+        {timerState === 'idle' ? (
+          <div className="flex flex-col items-center justify-center space-y-3">
             <div className="flex items-center justify-center gap-3 w-full max-w-md">
-              {/* ENHANCED START BUTTON */}
+              {/* PRIMARY BIG GREEN BUTTON: 【▶ 開始工作】 */}
               <button
                 onClick={handleStart}
                 disabled={!hasProject}
@@ -1172,10 +1031,10 @@ export const TimerTab: React.FC<TimerTabProps> = ({
                     ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/35 cursor-pointer hover:scale-103 active:scale-98'
                     : 'bg-stone-300 dark:bg-slate-800 text-stone-500 dark:text-slate-500 shadow-none cursor-not-allowed opacity-60'
                 }`}
-                title={hasProject ? '點擊立即開工' : '請先建立或選擇 Project 才能開始計時'}
+                title={hasProject ? '點擊立即開始工作' : '請先建立或選擇 Project 才能開始計時'}
               >
-                {!hasProject ? <Lock size={22} /> : <Play size={24} fill="currentColor" />}
-                <span>開工 (Start)</span>
+                {!hasProject ? <Lock size={22} /> : <Play size={22} fill="currentColor" />}
+                <span>開始工作</span>
               </button>
 
               {/* RESET BUTTON WHEN IDLE WITH ACCUMULATED SECONDS */}
@@ -1187,20 +1046,119 @@ export const TimerTab: React.FC<TimerTabProps> = ({
                       ? 'border-stone-300 hover:bg-stone-100 text-stone-600'
                       : 'border-slate-700 hover:bg-slate-800 text-slate-300'
                   }`}
-                  title="重置當前計時器（保留 Project）"
+                  title="重置當前計時器"
                 >
                   <RotateCcw size={16} />
                   <span>重置</span>
                 </button>
               )}
             </div>
-          )}
-        </div>
 
-        {!hasProject && (
-          <p className="mt-3 text-xs font-bold text-rose-600 dark:text-rose-400 text-center">
-            ⚠️ 請先建立或選擇 Project 才能開始計時
-          </p>
+            {!hasProject && (
+              <p className="text-xs font-bold text-rose-600 dark:text-rose-400 text-center">
+                ⚠️ 請先建立或選擇 Project 才能開始計時
+              </p>
+            )}
+          </div>
+        ) : (
+          /* ACTIVE / RUNNING / RESTING STATE: SMOOTH SLIDE-DOWN ACCORDION FLOW */
+          <div className="space-y-6 animate-in fade-in-50 slide-in-from-top-2 duration-300">
+            {/* 1. Task Content Input Box */}
+            <div className="text-left">
+              <label className="block text-xs font-bold text-stone-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <span>💼 工作內容 (Task Content)</span>
+                </span>
+                <span className="text-[10px] text-stone-400 font-normal">
+                  按下【完成並結算】時將自動寫入 Timesheet 工時紀錄
+                </span>
+              </label>
+              <input
+                type="text"
+                placeholder="例：封面插畫草稿、Client 追稿、開 meeting、排版校對..."
+                value={taskNote}
+                onChange={(e) => setTaskNote(e.target.value)}
+                className={`w-full text-xs sm:text-sm rounded-2xl px-4 py-3 border outline-none transition-all ${
+                  isWarm
+                    ? 'bg-stone-50 border-stone-300 text-stone-900 focus:bg-white focus:ring-2 focus:ring-emerald-500'
+                    : 'bg-slate-950 border-slate-700 text-slate-100 focus:ring-2 focus:ring-emerald-500'
+                }`}
+              />
+            </div>
+
+            {/* 2. Action Buttons Row */}
+            <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 text-center">
+              {timerState === 'working' ? (
+                <>
+                  {/* BREAK BUTTON */}
+                  <button
+                    onClick={handlePause}
+                    className="flex-1 min-w-[160px] max-w-xs py-4 px-6 rounded-3xl font-black text-base sm:text-lg bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-xl shadow-orange-500/25 flex items-center justify-center gap-2 transition-all cursor-pointer hover:scale-102 active:scale-98"
+                  >
+                    <Coffee size={20} />
+                    <span>休息</span>
+                  </button>
+
+                  {/* STOP / COMPLETE BUTTON */}
+                  <button
+                    onClick={handleRecord}
+                    className="flex-1 min-w-[160px] max-w-xs py-4 px-6 rounded-3xl font-black text-base sm:text-lg bg-rose-600 hover:bg-rose-700 text-white shadow-xl shadow-rose-600/25 flex items-center justify-center gap-2 transition-all cursor-pointer hover:scale-102 active:scale-98"
+                  >
+                    <CheckCircle2 size={20} />
+                    <span>完成並結算</span>
+                  </button>
+
+                  {/* SAFE RESET BUTTON */}
+                  <button
+                    onClick={handleResetTimer}
+                    className={`py-4 px-3 rounded-3xl border font-bold text-xs flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                      isWarm
+                        ? 'border-stone-300 hover:bg-stone-100 text-stone-600'
+                        : 'border-slate-700 hover:bg-slate-800 text-slate-300'
+                    }`}
+                    title="重置當前計時器"
+                  >
+                    <RotateCcw size={15} />
+                    <span>重置</span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  {/* RESUME BUTTON */}
+                  <button
+                    onClick={handleStart}
+                    className="flex-1 min-w-[160px] max-w-xs py-4 px-6 rounded-3xl font-black text-base sm:text-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-xl shadow-emerald-600/30 flex items-center justify-center gap-2 transition-all cursor-pointer hover:scale-102 active:scale-98"
+                  >
+                    <Play size={20} fill="currentColor" />
+                    <span>繼續工作</span>
+                  </button>
+
+                  {/* STOP / COMPLETE BUTTON */}
+                  <button
+                    onClick={handleRecord}
+                    className="flex-1 min-w-[160px] max-w-xs py-4 px-6 rounded-3xl font-black text-base sm:text-lg bg-rose-600 hover:bg-rose-700 text-white shadow-xl shadow-rose-600/25 flex items-center justify-center gap-2 transition-all cursor-pointer hover:scale-102 active:scale-98"
+                  >
+                    <CheckCircle2 size={20} />
+                    <span>完成並結算</span>
+                  </button>
+
+                  {/* SAFE RESET BUTTON */}
+                  <button
+                    onClick={handleResetTimer}
+                    className={`py-4 px-3 rounded-3xl border font-bold text-xs flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                      isWarm
+                        ? 'border-stone-300 hover:bg-stone-100 text-stone-600'
+                        : 'border-slate-700 hover:bg-slate-800 text-slate-300'
+                    }`}
+                    title="重置當前計時器"
+                  >
+                    <RotateCcw size={15} />
+                    <span>重置</span>
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
         )}
       </div>
 

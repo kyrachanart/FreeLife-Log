@@ -53,6 +53,39 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
   // --- Tabbed Entry Mode: 'quick' | 'detailed' ---
   const [entryMode, setEntryMode] = useState<'quick' | 'detailed'>('quick');
 
+  // --- Accordion Collapsible Form State (Default Collapsed) ---
+  const [isFormExpanded, setIsFormExpanded] = useState<boolean>(false);
+
+  // --- Dynamic Recent Keywords / Tags in LocalStorage ---
+  const DEFAULT_RECENT_TAGS = ['插畫', '排版', '開會', '校對', '設計', '剪輯', '文案', '程式'];
+  const [recentTags, setRecentTags] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('freelife_recent_tags');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      // ignore
+    }
+    return DEFAULT_RECENT_TAGS;
+  });
+
+  const addRecentTag = (tag: string) => {
+    const trimmed = tag.trim();
+    if (!trimmed) return;
+    setRecentTags((prev) => {
+      const filtered = prev.filter((t) => t !== trimmed);
+      const updated = [trimmed, ...filtered].slice(0, 8);
+      try {
+        localStorage.setItem('freelife_recent_tags', JSON.stringify(updated));
+      } catch (e) {
+        // ignore
+      }
+      return updated;
+    });
+  };
+
   // --- Profession / Role Recommendation State ---
   const [currentProfession, setCurrentProfession] = useState<string>('');
 
@@ -73,6 +106,7 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
   const [workDate, setWorkDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   
   // 24-hour Time Interval States (unprefilled by default)
+  const [isTimeRangeExpanded, setIsTimeRangeExpanded] = useState<boolean>(false);
   const [startTime, setStartTime] = useState<string>('');
   const [endTime, setEndTime] = useState<string>('');
 
@@ -124,6 +158,10 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
   }, [projects, scopeCreepProjectId]);
 
   const currentProject = projects.find((p) => p.id === selectedProjectId);
+
+  const clientColor = currentProject
+    ? getClientColor(currentProject.clientName, currentProject.clientColor || currentProject.color)
+    : '#2563EB';
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -299,6 +337,9 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
     const endTimeStr = `${endNow.getHours().toString().padStart(2, '0')}:${endNow.getMinutes().toString().padStart(2, '0')}`;
 
     const finalDesc = taskNote.trim() || `快捷加時 (${label})`;
+    if (taskNote.trim()) {
+      addRecentTag(taskNote.trim());
+    }
 
     const newSession: TimeSession = {
       id: `sess-${Date.now()}`,
@@ -346,6 +387,9 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
 
     // Default to '專注工作' if note is empty
     const finalDescription = taskNote.trim() || '專注工作';
+    if (taskNote.trim()) {
+      addRecentTag(taskNote.trim());
+    }
 
     const startStr = startTime.trim();
     const endStr = endTime.trim();
@@ -464,21 +508,15 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
       {/* ============================================================ */}
       {/* 1. MANUAL ENTRY FORM */}
       {/* ============================================================ */}
-      {(() => {
-        const clientColor = currentProject
-          ? getClientColor(currentProject.clientName, currentProject.clientColor || currentProject.color)
-          : '#2563EB';
-
-        return (
-          <div
-            className={`rounded-3xl p-6 sm:p-8 border transition-all ${
-              isWarm ? 'bg-white border-stone-200 shadow-sm' : 'bg-slate-900 border-slate-800'
-            }`}
-            style={{
-              borderLeftWidth: '4px',
-              borderLeftColor: clientColor,
-            }}
-          >
+      <div
+        className={`rounded-3xl p-6 sm:p-8 border transition-all ${
+          isWarm ? 'bg-white border-stone-200 shadow-sm' : 'bg-slate-900 border-slate-800'
+        }`}
+        style={{
+          borderLeftWidth: '4px',
+          borderLeftColor: clientColor,
+        }}
+      >
             {/* Clean Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-5 border-b border-stone-100 dark:border-slate-800 mb-6 gap-3">
               <div className="flex items-center gap-3">
@@ -487,26 +525,13 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
                 </div>
                 <div>
                   <h2 className="font-black text-lg sm:text-xl text-stone-900 dark:text-slate-100">
-                    手動補記工時 (Manual Entry)
+                    手動補記工時
                   </h2>
                   <p className="text-xs text-stone-500 dark:text-slate-400 mt-0.5">
                     忘記開計時器？在此手動輸入，即時寫入全域 Timesheet 並同步更新總工時與預算進度
                   </p>
                 </div>
               </div>
-
-              {onNavigateTab && (
-                <button
-                  onClick={() => onNavigateTab('calculator')}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition-colors cursor-pointer shrink-0 ${
-                    isWarm
-                      ? 'border-stone-300 hover:bg-stone-100 text-stone-700'
-                      : 'border-slate-700 hover:bg-slate-800 text-slate-300'
-                  }`}
-                >
-                  前往 Project 總覽 →
-                </button>
-              )}
             </div>
 
             {/* Sub-tab Entry Mode Switcher */}
@@ -521,7 +546,7 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
                 }`}
               >
                 <Zap size={16} />
-                <span>一鍵快捷加時 (Quick Time Log)</span>
+                <span>一鍵快捷加時</span>
               </button>
               <button
                 type="button"
@@ -533,49 +558,115 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
                 }`}
               >
                 <FileText size={16} />
-                <span>詳細紀錄 (Detailed Entry)</span>
+                <span>詳細紀錄</span>
               </button>
             </div>
 
-            {/* MODE 1: QUICK TIME LOG */}
-            {entryMode === 'quick' ? (
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* 1. 選擇 Project */}
+            {/* ACCORDION FORM WRAPPER: DEFAULT COLLAPSED */}
+            {!isFormExpanded ? (
+              <div
+                onClick={() => setIsFormExpanded(true)}
+                className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
+                  isWarm ? 'bg-stone-50 hover:bg-stone-100/80 border-stone-200' : 'bg-slate-950/60 hover:bg-slate-950 border-slate-800'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  {entryMode === 'quick' ? <Zap size={18} className="text-amber-500 shrink-0" /> : <FileText size={18} className="text-emerald-500 shrink-0" />}
                   <div>
-                    <label className="block text-xs font-bold text-stone-700 dark:text-slate-300 mb-1.5">
-                      1. 選擇追加工時的 Project <span className="text-rose-500">*</span>
-                    </label>
-                    {projects.length > 0 ? (
-                      <ProjectSelectDropdown
-                        projects={projects}
-                        selectedProjectId={selectedProjectId}
-                        onSelectProject={(id) => handleSelectProject(id)}
-                        className="w-full"
-                      />
-                    ) : (
-                      <span className="text-xs text-rose-500 font-bold">尚無 Project</span>
-                    )}
-                  </div>
-
-                  {/* 2. 工作備註 */}
-                  <div>
-                    <label className="block text-xs font-bold text-stone-700 dark:text-slate-300 mb-1.5">
-                      2. 工作備註 (選填)
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="例：Client 追稿修圖、臨時開會、細節維護..."
-                      value={taskNote}
-                      onChange={(e) => setTaskNote(e.target.value)}
-                      className={`w-full text-xs sm:text-sm font-bold rounded-xl px-3.5 py-2.5 border outline-none transition-colors ${
-                        isWarm
-                          ? 'bg-stone-50 border-stone-300 text-stone-900 focus:bg-white focus:ring-2 focus:ring-emerald-500'
-                          : 'bg-slate-950 border-slate-700 text-slate-100 focus:ring-2 focus:ring-emerald-500'
-                      }`}
-                    />
+                    <div className="text-xs sm:text-sm font-extrabold text-stone-800 dark:text-slate-200 flex items-center gap-2">
+                      <span>當前補記模式：{entryMode === 'quick' ? '一鍵快捷加時' : '詳細紀錄'}</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold">點擊展開</span>
+                    </div>
+                    <p className="text-[11px] text-stone-400 mt-0.5">
+                      {entryMode === 'quick'
+                        ? '選擇 Project 後點擊 +15m, +30m, +1h 即刻補記工時'
+                        : '可指定精準起訖時間、休息時間與工作詳細 Memo'}
+                    </p>
                   </div>
                 </div>
+                <button
+                  type="button"
+                  className="w-full sm:w-auto px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer shrink-0"
+                >
+                  <span>展開填寫表單</span>
+                  <ChevronDown size={14} />
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-6 animate-in fade-in-50 duration-200">
+                {/* Header Collapse Bar */}
+                <div className="flex items-center justify-between pb-3 border-b border-stone-100 dark:border-slate-800">
+                  <span className="text-xs font-extrabold text-stone-600 dark:text-slate-300 flex items-center gap-1.5">
+                    {entryMode === 'quick' ? <Zap size={14} className="text-amber-500" /> : <FileText size={14} className="text-emerald-500" />}
+                    <span>正在填寫：{entryMode === 'quick' ? '一鍵快捷加時' : '詳細紀錄表單'}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setIsFormExpanded(false)}
+                    className="px-3 py-1 rounded-xl border border-stone-300 dark:border-slate-700 hover:bg-stone-100 dark:hover:bg-slate-800 text-stone-600 dark:text-slate-300 text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                  >
+                    <span>收摺表單</span>
+                    <ChevronUp size={14} />
+                  </button>
+                </div>
+
+                {/* MODE 1: QUICK TIME LOG */}
+                {entryMode === 'quick' ? (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* 1. 選擇 Project */}
+                      <div>
+                        <label className="block text-xs font-bold text-stone-700 dark:text-slate-300 mb-1.5">
+                          1. 選擇Project <span className="text-rose-500">*</span>
+                        </label>
+                        {projects.length > 0 ? (
+                          <ProjectSelectDropdown
+                            projects={projects}
+                            selectedProjectId={selectedProjectId}
+                            onSelectProject={(id) => handleSelectProject(id)}
+                            className="w-full"
+                          />
+                        ) : (
+                          <span className="text-xs text-rose-500 font-bold">尚無 Project</span>
+                        )}
+                      </div>
+
+                      {/* 2. 動態熱門標籤 & 自訂備註 */}
+                      <div>
+                        <label className="block text-xs font-bold text-stone-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
+                          <span>2. 工作內容</span>
+                        </label>
+                        <div className="flex flex-wrap gap-1.5 mb-2">
+                          {recentTags.slice(0, 6).map((tag, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => setTaskNote(tag)}
+                              className={`px-2.5 py-1 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                                taskNote === tag
+                                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                                  : isWarm
+                                  ? 'bg-stone-50 hover:bg-stone-100 border-stone-200 text-stone-700'
+                                  : 'bg-slate-900 hover:bg-slate-800 border-slate-700 text-slate-300'
+                              }`}
+                            >
+                              <span>{tag}</span>
+                            </button>
+                          ))}
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="或輸入自訂備註（例：Client 追稿、臨時開會...）"
+                          value={taskNote}
+                          onChange={(e) => setTaskNote(e.target.value)}
+                          className={`w-full text-xs sm:text-sm font-bold rounded-xl px-3.5 py-2 border outline-none transition-colors ${
+                            isWarm
+                              ? 'bg-stone-50 border-stone-300 text-stone-900 focus:bg-white focus:ring-2 focus:ring-emerald-500'
+                              : 'bg-slate-950 border-slate-700 text-slate-100 focus:ring-2 focus:ring-emerald-500'
+                          }`}
+                        />
+                      </div>
+                    </div>
 
                 {/* 3. 一鍵累加按鈕矩陣 */}
                 <div>
@@ -619,7 +710,7 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
                 {/* 1. 選擇 Client & Project * (按 Client 分組) */}
                 <div>
                   <label className="block text-xs font-bold text-stone-700 dark:text-slate-300 mb-1.5">
-                    1. 選擇 Client & Project <span className="text-rose-500">*</span>
+                    1. 選擇Project <span className="text-rose-500">*</span>
                   </label>
                   {projects.length > 0 ? (
                     <ProjectSelectDropdown
@@ -644,10 +735,10 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
               )}
             </div>
 
-            {/* 2. 工作日期 (預設今日) * */}
+            {/* 2. 工作日期 * */}
             <div>
               <label className="block text-xs font-bold text-stone-700 dark:text-slate-300 mb-1.5">
-                2. 工作日期 (預設今日) <span className="text-rose-500">*</span>
+                2. 工作日期 <span className="text-rose-500">*</span>
               </label>
               <input
                 type="date"
@@ -664,61 +755,77 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
           </div>
 
           {/* Row 2: Field 3 (補記實際時間) */}
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-bold text-stone-700 dark:text-slate-300">
-                3. 補記實際時間
-              </label>
-              <span className="text-[11px] text-stone-400">
-                可留空，直接於下方填寫工時
-              </span>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <span className="text-[11px] text-stone-500 dark:text-slate-400 block mb-1">
-                  開始時間 (Start Time)
-                </span>
-                <input
-                  type="time"
-                  value={startTime}
-                  onChange={(e) => handleStartTimeChange(e.target.value)}
-                  className={`w-full text-xs sm:text-sm font-mono font-bold rounded-xl px-3.5 py-2.5 border outline-none text-center ${
-                    isWarm
-                      ? 'bg-stone-50 border-stone-300 text-stone-900 focus:bg-white focus:ring-2 focus:ring-emerald-500'
-                      : 'bg-slate-950 border-slate-700 text-slate-100 focus:ring-2 focus:ring-emerald-500'
-                  }`}
-                />
+          <div className="border border-stone-200/80 dark:border-slate-800 rounded-2xl p-3 sm:p-4 bg-stone-50/50 dark:bg-slate-950/40">
+            <button
+              type="button"
+              onClick={() => setIsTimeRangeExpanded((prev) => !prev)}
+              className="w-full flex items-center justify-between text-xs font-bold text-stone-700 dark:text-slate-300 cursor-pointer"
+            >
+              <div className="flex items-center gap-2">
+                <Clock size={15} className="text-emerald-600 dark:text-emerald-400" />
+                <span>3. 補記實際時間</span>
+                {startTime && endTime && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-mono">
+                    {startTime} - {endTime}
+                  </span>
+                )}
               </div>
+              <div className="flex items-center gap-1 text-[11px] text-stone-400">
+                <span>{isTimeRangeExpanded ? '收合選項' : '展開選擇起訖時間'}</span>
+                {isTimeRangeExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              </div>
+            </button>
 
-              <div>
-                <span className="text-[11px] text-stone-500 dark:text-slate-400 block mb-1">
-                  結束時間 (End Time)
-                </span>
-                <input
-                  type="time"
-                  value={endTime}
-                  onChange={(e) => handleEndTimeChange(e.target.value)}
-                  className={`w-full text-xs sm:text-sm font-mono font-bold rounded-xl px-3.5 py-2.5 border outline-none text-center ${
-                    isWarm
-                      ? 'bg-stone-50 border-stone-300 text-stone-900 focus:bg-white focus:ring-2 focus:ring-emerald-500'
-                      : 'bg-slate-950 border-slate-700 text-slate-100 focus:ring-2 focus:ring-emerald-500'
-                  }`}
-                />
+            {isTimeRangeExpanded && (
+              <div className="mt-3 pt-3 border-t border-stone-200/60 dark:border-slate-800 space-y-2 animate-in fade-in-50 duration-200">
+                <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                  <div>
+                    <span className="text-[11px] text-stone-500 dark:text-slate-400 block mb-1 font-medium">
+                      開始時間 (Start)
+                    </span>
+                    <input
+                      type="time"
+                      value={startTime}
+                      onChange={(e) => handleStartTimeChange(e.target.value)}
+                      className={`w-full text-xs sm:text-sm font-mono font-bold rounded-xl px-3 py-2 border outline-none text-center ${
+                        isWarm
+                          ? 'bg-white border-stone-300 text-stone-900 focus:ring-2 focus:ring-emerald-500'
+                          : 'bg-slate-900 border-slate-700 text-slate-100 focus:ring-2 focus:ring-emerald-500'
+                      }`}
+                    />
+                  </div>
+
+                  <div>
+                    <span className="text-[11px] text-stone-500 dark:text-slate-400 block mb-1 font-medium">
+                      結束時間 (End)
+                    </span>
+                    <input
+                      type="time"
+                      value={endTime}
+                      onChange={(e) => handleEndTimeChange(e.target.value)}
+                      className={`w-full text-xs sm:text-sm font-mono font-bold rounded-xl px-3 py-2 border outline-none text-center ${
+                        isWarm
+                          ? 'bg-white border-stone-300 text-stone-900 focus:ring-2 focus:ring-emerald-500'
+                          : 'bg-slate-900 border-slate-700 text-slate-100 focus:ring-2 focus:ring-emerald-500'
+                      }`}
+                    />
+                  </div>
+                </div>
+                <p className="text-[10px] text-stone-400">
+                  {startTime && endTime
+                    ? `區間：${startTime} 至 ${endTime}（已自動連動下方工時長度）`
+                    : '無需指定時間點時可留空，直接在下方輸入投入小時與分鐘'}
+                </p>
               </div>
-            </div>
-            <p className="text-[11px] text-stone-400 mt-1">
-              {startTime && endTime
-                ? `區間：${startTime} 至 ${endTime}（已自動計算下方工時長度）`
-                : '無需精確時段時可留空，直接在下方輸入投入小時與分鐘'}
-            </p>
+            )}
           </div>
 
           {/* Row 3: Field 4 (投入實質工時 *) & Field 5 (舒緩休息時間) */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {/* 4. 投入實質工時 (計費) * */}
+            {/* 4. 投入實質工時 * */}
             <div className="sm:col-span-2">
               <label className="block text-xs font-bold text-stone-700 dark:text-slate-300 mb-1.5">
-                4. 投入實質工時 (計費) <span className="text-rose-500">*</span>
+                4. 實質投入工時 <span className="text-rose-500">*</span>
               </label>
               <div className="grid grid-cols-2 gap-2">
                 <div className="relative">
@@ -786,7 +893,7 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
             </div>
           </div>
 
-          {/* Row 4: Field 6 (工作內容) + 智能推薦快捷詞助手 */}
+          {/* Row 4: Field 6 (工作內容) + 內建標籤快速帶入 */}
           <div className="space-y-3">
             <div>
               <label className="block text-xs font-bold text-stone-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
@@ -806,96 +913,35 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
               />
             </div>
 
-            {/* SMART ROLE RECOMMENDATION SECTION (Positioned directly under Field 6 as a quick-fill assistant) */}
-            <div className="p-4 rounded-2xl bg-stone-50/90 dark:bg-slate-950/70 border border-stone-200/90 dark:border-slate-800 space-y-3.5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                    <Sparkles size={15} />
-                  </div>
-                  <span className="text-xs font-black text-stone-900 dark:text-slate-100">
-                    自由輸入職業 + 智能推薦快捷詞 (Smart Role Recommendation)
-                  </span>
-                </div>
-                <span className="text-[10px] text-stone-400">點擊下方快捷詞直接帶入工作 Memo</span>
-              </div>
-
-              {/* Profession Input & Quick Preset Tags */}
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-stone-600 dark:text-slate-400 whitespace-nowrap">
-                    當前職業：
-                  </span>
-                  <div className="relative flex-1 flex items-center">
-                    <input
-                      type="text"
-                      value={currentProfession}
-                      onChange={(e) => setCurrentProfession(e.target.value)}
-                      placeholder="輸入職業名稱...（例：插畫、設計師、剪輯、教練、翻譯...）"
-                      className={`w-full text-xs font-bold rounded-xl pl-3 pr-8 py-1.5 border outline-none transition-all ${
-                        isWarm
-                          ? 'bg-white border-stone-300 text-stone-900 focus:ring-2 focus:ring-emerald-500'
-                          : 'bg-slate-950 border-slate-700 text-slate-100 focus:ring-2 focus:ring-emerald-500'
-                      }`}
-                    />
-                    {currentProfession && (
-                      <button
-                        type="button"
-                        onClick={() => setCurrentProfession('')}
-                        className="absolute right-2 p-0.5 rounded text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 transition-colors cursor-pointer"
-                        title="清空職業輸入"
-                      >
-                        <X size={13} />
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Quick Category Tags */}
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-[10px] text-stone-400 mr-0.5">快捷切換：</span>
-                  {presetProfessions.map((prof, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => setCurrentProfession(prof)}
-                      className={`text-[11px] px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
-                        currentProfession === prof
-                          ? 'bg-emerald-600 text-white border-emerald-600 font-bold shadow-xs'
-                          : isWarm
-                          ? 'bg-white border-stone-200 text-stone-700 hover:bg-stone-100'
-                          : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
-                      }`}
-                    >
-                      {prof}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Dynamic Concise Keywords Grid */}
-              <div className="pt-2 border-t border-stone-200/70 dark:border-slate-800/70">
-                <span className="text-[11px] font-bold text-stone-500 dark:text-slate-400 block mb-2">
-                  ⚡ 常用工作核心關鍵字（點擊直接帶入 Memo）：
+            {/* Quick Built-in Tags Bar */}
+            <div className="p-3.5 rounded-2xl bg-stone-50/90 dark:bg-slate-950/70 border border-stone-200/90 dark:border-slate-800 space-y-2">
+              <div className="flex items-center gap-1.5">
+                <Sparkles size={14} className="text-amber-500" />
+                <span className="text-xs font-extrabold text-stone-800 dark:text-slate-200">
+                  常用工作標籤（歷史紀錄自動記錄）
                 </span>
-                <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                  {dynamicKeywords.map((kw, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => handleApplyKeyword(kw)}
-                      className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 hover:scale-102 active:scale-98 ${
-                        taskNote === kw
-                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                          : isWarm
-                          ? 'bg-white border-stone-200 hover:border-emerald-500 hover:bg-emerald-50/50 text-stone-800'
-                          : 'bg-slate-900 border-slate-800 hover:border-emerald-500 hover:bg-emerald-950/40 text-slate-200'
-                      }`}
-                    >
-                      <span>{kw}</span>
-                    </button>
-                  ))}
-                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {recentTags.map((tagText, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      setTaskNote((prev) => (prev ? `${prev}、${tagText}` : tagText));
+                      setToastMessage(`已帶入「${tagText}」至工作 Memo`);
+                    }}
+                    className={`px-2.5 py-1 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center gap-1 hover:scale-102 active:scale-98 ${
+                      taskNote.includes(tagText)
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                        : isWarm
+                        ? 'bg-white border-stone-200 hover:border-emerald-500 hover:bg-emerald-50/50 text-stone-800'
+                        : 'bg-slate-900 border-slate-800 hover:border-emerald-500 hover:bg-emerald-950/40 text-slate-200'
+                    }`}
+                  >
+                    <span>{tagText}</span>
+                  </button>
+                ))}
               </div>
             </div>
           </div>
@@ -910,11 +956,11 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
               <span>確認補記並存入 Timesheet</span>
             </button>
           </div>
-            </form>
-            )}
-          </div>
-        );
-      })()}
+        </form>
+      )}
+    </div>
+  )}
+</div>
 
       {/* ============================================================ */}
       {/* 2. SCOPE CREEP 改稿防護算盤 (ACCORDION - DEFAULT COLLAPSED) */}
@@ -937,7 +983,7 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-extrabold text-base text-stone-900 dark:text-slate-100">
-                  Client 臨時追加改稿點算？ (Scope Creep Protection)
+                  Client 臨時追加改稿點算？
                 </h3>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
                   改稿報價神器

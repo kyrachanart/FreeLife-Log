@@ -101,17 +101,6 @@ export const ProjectSelectDropdown: React.FC<ProjectSelectDropdownProps> = ({
               <span className="font-bold text-xs sm:text-sm truncate">
                 {currentProject.name}
               </span>
-              {/* Client Tag */}
-              <span
-                className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded border shrink-0"
-                style={{
-                  backgroundColor: `${currentClientColor}15`,
-                  color: currentClientColor,
-                  borderColor: `${currentClientColor}35`,
-                }}
-              >
-                {currentProject.clientName}
-              </span>
             </>
           ) : (
             <span className="text-stone-400 dark:text-slate-500 text-xs sm:text-sm">

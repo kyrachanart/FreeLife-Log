@@ -8,6 +8,10 @@ import {
   User,
   Eye,
   EyeOff,
+  Play,
+  Pause,
+  Square,
+  Coffee,
 } from 'lucide-react';
 import { ThemeProvider, useTheme } from './ThemeContext';
 import { Project, TimeSession, FreelancerProfile, TimerBridge } from './types';
@@ -214,6 +218,24 @@ function AppContent() {
     showToast(`🗑️ 已成功一鍵刪除 ${projectIds.length} 個 Project 及旗下工時紀錄！`);
   }, [showToast]);
 
+  // Batch move projects to another Client
+  const handleMoveProjects = useCallback((projectIds: string[], targetClientName: string) => {
+    if (projectIds.length === 0 || !targetClientName.trim()) return;
+    const trimmedClient = targetClientName.trim();
+    setProjects((prev) =>
+      prev.map((p) => {
+        if (projectIds.includes(p.id)) {
+          return {
+            ...p,
+            clientName: trimmedClient,
+          };
+        }
+        return p;
+      })
+    );
+    showToast(`🚚 已成功將 ${projectIds.length} 個 Project 移動至 Client「${trimmedClient}」！`);
+  }, [showToast]);
+
   // Update a project
   const handleUpdateProject = useCallback((updatedProject: Project) => {
     setProjects((prev) =>
@@ -377,14 +399,18 @@ function AppContent() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           {/* Logo & Identity */}
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white shadow-md shadow-emerald-500/20">
-              <Clock size={20} />
+            <div className="w-10 h-10 flex items-center justify-center shrink-0 overflow-hidden">
+              <img
+                src="/Freelife-log_icon_v2.png"
+                alt="FreeLife Log"
+                className="w-full h-full object-contain bg-transparent"
+              />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="font-extrabold text-base sm:text-lg tracking-tight">FreeLife Log</h1>
               </div>
-              <p className="text-[11px] text-stone-500 dark:text-slate-400 hidden sm:block">
+              <p className="text-[10px] text-stone-500 dark:text-slate-400">
                 紀錄Freelancer的生活，拒絕OT
               </p>
             </div>
@@ -437,58 +463,10 @@ function AppContent() {
             </button>
           </div>
         </div>
-
-        {/* Dedicated Fixed Tab Menu Bar with Active Indicator Line */}
-        <div className="border-t border-stone-200/70 dark:border-slate-800/80 bg-stone-100/60 dark:bg-slate-950/50">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 overflow-x-auto scrollbar-none">
-            <nav className="flex space-x-2 sm:space-x-8">
-              {navTabs.map((tab) => {
-                const Icon = tab.icon;
-                const isActive = activeTab === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`relative py-3.5 px-3 sm:px-4 flex items-center gap-2 text-xs sm:text-sm font-bold whitespace-nowrap transition-all cursor-pointer ${
-                      isActive
-                        ? isWarm
-                          ? 'text-stone-950'
-                          : 'text-white'
-                        : isWarm
-                        ? 'text-stone-500 hover:text-stone-800'
-                        : 'text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    <Icon
-                      size={17}
-                      className={
-                        isActive
-                          ? isWarm
-                            ? 'text-emerald-700'
-                            : 'text-emerald-400'
-                          : 'opacity-70'
-                      }
-                    />
-                    <span>{tab.label}</span>
-
-                    {/* High-Contrast Bottom Indicator Line */}
-                    {isActive && (
-                      <span
-                        className={`absolute bottom-0 left-0 right-0 h-1 rounded-full ${
-                          isWarm ? 'bg-emerald-600' : 'bg-emerald-400'
-                        }`}
-                      />
-                    )}
-                  </button>
-                );
-              })}
-            </nav>
-          </div>
-        </div>
       </header>
 
       {/* Main Tab Viewport (Preserved in DOM to prevent losing background timer state) */}
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 pb-20">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 pb-28">
         {/* Tab 1: 核心計時 (Timer) */}
         <div className={activeTab === 'timer' ? 'block' : 'hidden'}>
           <TimerTab
@@ -516,6 +494,7 @@ function AppContent() {
             onDeleteSession={handleDeleteSession}
             onDeleteProject={handleDeleteProject}
             onDeleteProjects={handleDeleteProjects}
+            onMoveProjects={handleMoveProjects}
             onUpdateProject={handleUpdateProject}
             onNavigateTab={setActiveTab}
             onOpenNewProjectModal={handleTriggerNewProject}
@@ -606,6 +585,37 @@ function AppContent() {
           Created by <span className="font-medium text-stone-500 dark:text-slate-400">Kyra Chan</span>
         </p>
       </footer>
+
+      {/* Fixed Bottom Navigation Bar */}
+      <div className={`fixed bottom-0 left-0 right-0 z-50 border-t backdrop-blur-md transition-colors px-2 py-1.5 shadow-lg ${
+        isWarm ? 'bg-white/95 border-stone-200 text-stone-800' : 'bg-slate-900/95 border-slate-800 text-slate-100'
+      }`}>
+        <nav className="max-w-md mx-auto grid grid-cols-3 gap-1">
+          {[
+            { id: 'timer', label: '工作計時', icon: Clock },
+            { id: 'calculator', label: 'Project總覽', icon: BarChart3 },
+            { id: 'manual-entry', label: '補記工時', icon: Edit3 },
+          ].map((item) => {
+            const Icon = item.icon;
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setActiveTab(item.id)}
+                className={`flex flex-col items-center justify-center py-1.5 px-2 rounded-xl transition-all cursor-pointer ${
+                  isActive
+                    ? 'text-emerald-600 dark:text-emerald-400 font-extrabold bg-emerald-50/80 dark:bg-emerald-950/40'
+                    : 'text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300 font-medium'
+                }`}
+              >
+                <Icon size={20} className={isActive ? 'text-emerald-600 dark:text-emerald-400' : ''} />
+                <span className="text-[11px] mt-0.5 tracking-tight">{item.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+      </div>
     </div>
   );
 }

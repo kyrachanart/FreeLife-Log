@@ -19,12 +19,16 @@ import {
   Eye,
   EyeOff,
   Layers,
+  Settings,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { Project, TimeSession, ProjectMemoItem, FreelancerProfile } from '../../types';
 import { useTheme } from '../../ThemeContext';
 import { EditProjectModal } from '../modals/EditProjectModal';
 import { ConfirmDeleteModal } from '../modals/ConfirmDeleteModal';
 import { ConfirmDeleteProjectModal } from '../modals/ConfirmDeleteProjectModal';
+import { ProjectHeader } from '../common/ProjectHeader';
 import { BatchDeleteProjectsModal } from '../modals/BatchDeleteProjectsModal';
 import { ProjectSelectDropdown } from '../common/ProjectSelectDropdown';
 import { getClientColor } from '../../utils/clientColors';
@@ -35,6 +39,7 @@ interface CalculatorTabProps {
   onDeleteSession: (sessionId: string) => void;
   onDeleteProject?: (projectId: string) => void;
   onDeleteProjects?: (projectIds: string[]) => void;
+  onMoveProjects?: (projectIds: string[], targetClientName: string) => void;
   onUpdateProject: (updatedProject: Project) => void;
   onNavigateTab?: (tabId: string) => void;
   onOpenNewProjectModal?: () => void;
@@ -59,6 +64,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
   onDeleteSession,
   onDeleteProject,
   onDeleteProjects,
+  onMoveProjects,
   onUpdateProject,
   onNavigateTab,
   onOpenNewProjectModal,
@@ -74,7 +80,19 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
   const { theme } = useTheme();
   const isWarm = theme === 'warm';
 
-  // Local independent viewing state (Pure View: browsing projects will never interrupt the timer)
+  // Extract unique existing clients list
+  const existingClients = useMemo(() => {
+    const list: string[] = [];
+    projects.forEach((p) => {
+      const c = (p.clientName || '').trim();
+      if (c && !list.includes(c)) {
+        list.push(c);
+      }
+    });
+    return list;
+  }, [projects]);
+
+  // Local independent viewing state
   const [viewProjectId, setViewProjectId] = useState<string>(() => {
     if (activeProjectId && projects.some((p) => p.id === activeProjectId)) {
       return activeProjectId;
@@ -93,11 +111,23 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
     }
   }, [projects, viewProjectId]);
 
+  // Synchronize viewProjectId when global activeProjectId changes externally
+  useEffect(() => {
+    if (activeProjectId && projects.some((p) => p.id === activeProjectId)) {
+      setViewProjectId(activeProjectId);
+    }
+  }, [activeProjectId, projects]);
+
   const handleViewProjectChange = (targetId: string) => {
     setViewProjectId(targetId);
+    if (setActiveProjectId) {
+      setActiveProjectId(targetId);
+    }
   };
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(false);
+  const [isMetricsExpanded, setIsMetricsExpanded] = useState(true);
   const [copiedFullTimesheet, setCopiedFullTimesheet] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -128,6 +158,8 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
   // Project Memo state for current project
   const [projectMemoInput, setProjectMemoInput] = useState<string>('');
   const [copiedMemoId, setCopiedMemoId] = useState<string | null>(null);
+  const [editingMemoId, setEditingMemoId] = useState<string | null>(null);
+  const [editingMemoContent, setEditingMemoContent] = useState<string>('');
 
   // Compute current project's memos list with backward compatibility
   const currentMemos = useMemo<ProjectMemoItem[]>(() => {
@@ -192,6 +224,42 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
     setCopiedMemoId(memoId);
     showToast('📋 已複製筆記內容至剪貼簿！');
     setTimeout(() => setCopiedMemoId(null), 2000);
+  };
+
+  const handleStartEditMemo = (memo: ProjectMemoItem) => {
+    setEditingMemoId(memo.id);
+    setEditingMemoContent(memo.content);
+  };
+
+  const handleCancelEditMemo = () => {
+    setEditingMemoId(null);
+    setEditingMemoContent('');
+  };
+
+  const handleSaveEditMemo = (memoId: string) => {
+    if (!currentProject) return;
+    const trimmed = editingMemoContent.trim();
+    if (!trimmed) {
+      showToast('⚠️ 筆記內容不可為空！');
+      return;
+    }
+
+    const now = new Date();
+    const timeStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+    const updatedMemos = currentMemos.map((m) =>
+      m.id === memoId ? { ...m, content: trimmed, createdAt: `${timeStr} (已編輯)` } : m
+    );
+
+    onUpdateProject({
+      ...currentProject,
+      memo: updatedMemos[0]?.content || '',
+      memos: updatedMemos,
+    });
+
+    setEditingMemoId(null);
+    setEditingMemoContent('');
+    showToast('✏️ 已成功更新備忘筆記！');
   };
 
   const showToast = (msg: string) => {
@@ -426,6 +494,14 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
     );
   }
 
+  const clientColor = currentProject
+    ? getClientColor(currentProject.clientName, currentProject.clientColor || currentProject.color)
+    : '#2563EB';
+
+  const isHourlyRateVisible = hourlyRateVisibilityMap && viewProjectId
+    ? hourlyRateVisibilityMap[viewProjectId] !== false
+    : showHourlyRate;
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       {/* Toast Notification */}
@@ -466,177 +542,117 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
       {/* ============================================================ */}
       {/* TOP CONTROLS & PROJECT SELECTOR */}
       {/* ============================================================ */}
-      {(() => {
-        const clientColor = currentProject
-          ? getClientColor(currentProject.clientName, currentProject.clientColor || currentProject.color)
-          : '#2563EB';
-
-        return (
-          <div
-            className={`rounded-3xl p-6 sm:p-7 border transition-all ${
-              isWarm ? 'bg-white border-stone-200 shadow-sm' : 'bg-slate-900 border-slate-800'
-            }`}
-            style={{
-              borderLeftWidth: '4px',
-              borderLeftColor: clientColor,
-            }}
-          >
+      <div
+        className={`rounded-3xl p-6 sm:p-7 border transition-all ${
+          isWarm ? 'bg-white border-stone-200 shadow-sm' : 'bg-slate-900 border-slate-800'
+        }`}
+        style={{
+          borderLeftWidth: '4px',
+          borderLeftColor: clientColor,
+        }}
+      >
             {/* TOP ACTION & SELECTOR ROWS */}
-            <div className="space-y-3.5 pb-5 border-b border-stone-100 dark:border-slate-800">
-              {/* Row 1: Primary Action Row */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                {/* Left: Label + Dropdown */}
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <span className="text-xs font-bold text-stone-500 dark:text-slate-400 whitespace-nowrap shrink-0">
-                    選擇 PROJECT:
-                  </span>
-                  <ProjectSelectDropdown
-                    projects={projects}
-                    selectedProjectId={viewProjectId}
-                    onSelectProject={(id) => handleViewProjectChange(id)}
-                    className="w-full max-w-sm sm:max-w-md"
-                  />
-                </div>
-
-                {/* Right: Primary Action Button */}
-                <div className="shrink-0">
-                  {timerStatus?.isRunning && timerStatus.projectId !== viewProjectId && onRequestSwitchProject ? (
-                    <button
-                      type="button"
-                      onClick={() => onRequestSwitchProject(viewProjectId)}
-                      className="w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-black bg-amber-600 hover:bg-amber-700 text-white flex items-center justify-center gap-2 transition-all shadow-md shadow-amber-600/20 cursor-pointer"
-                      title="切換計時器至本專案（將開啟保存/放棄確認）"
-                    >
-                      <Play size={14} fill="currentColor" />
-                      <span>切換為此專案計時</span>
-                    </button>
-                  ) : timerStatus?.isRunning && timerStatus.projectId === viewProjectId ? (
-                    <button
-                      type="button"
-                      onClick={() => onNavigateTab && onNavigateTab('timer')}
-                      className="w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-600/20 cursor-pointer"
-                      title="此專案正在計時中，點擊前往計時器"
-                    >
-                      <Clock size={14} />
-                      <span>正在計時中 (前往計時器)</span>
-                    </button>
-                  ) : (
-                    onNavigateTab && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (setActiveProjectId) {
-                            setActiveProjectId(viewProjectId);
-                          }
-                          onNavigateTab('timer');
-                        }}
-                        className="w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-600/20 cursor-pointer"
-                        title="前往計時器並以本專案開始計時"
-                      >
-                        <Play size={14} fill="currentColor" />
-                        <span>以本專案開始計時</span>
-                      </button>
-                    )
-                  )}
-                </div>
+            <div className="flex items-center justify-between gap-3 pb-4 border-b border-stone-100 dark:border-slate-800">
+              {/* Left: Label + Dropdown */}
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <span className="text-xs font-bold text-stone-500 dark:text-slate-400 whitespace-nowrap shrink-0">
+                  選擇 PROJECT:
+                </span>
+                <ProjectSelectDropdown
+                  projects={projects}
+                  selectedProjectId={viewProjectId}
+                  onSelectProject={(id) => handleViewProjectChange(id)}
+                  className="w-full max-w-sm sm:max-w-md"
+                />
               </div>
 
-              {/* Row 2: Secondary Management Row (✏️ 編輯 Project > 🗑️ 刪除 Project) */}
-              <div className="flex items-center gap-2 pt-0.5 flex-wrap">
+              {/* Right: Settings Gear Dropdown */}
+              <div className="relative shrink-0">
                 <button
-                  onClick={() => setIsEditModalOpen(true)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border flex items-center gap-1.5 transition-colors cursor-pointer ${
+                  type="button"
+                  onClick={() => setIsSettingsMenuOpen((prev) => !prev)}
+                  className={`p-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                     isWarm
                       ? 'border-stone-300 hover:bg-stone-100 text-stone-700 bg-stone-50/50'
                       : 'border-slate-700 hover:bg-slate-800 text-slate-300 bg-slate-900/50'
                   }`}
-                  title="編輯此 Project 詳情與報價"
+                  title="Project 管理與設定"
                 >
-                  <Edit2 size={13} />
-                  <span>編輯 Project</span>
+                  <Settings size={18} />
+                  <span className="hidden sm:inline">設定</span>
+                  <ChevronDown size={14} />
                 </button>
 
-                {onDeleteProject && (
-                  <button
-                    onClick={() => setIsDeleteProjectModalOpen(true)}
-                    className="px-3 py-1.5 rounded-xl text-xs font-bold border border-rose-200 hover:bg-rose-50 text-rose-700 dark:border-rose-900/60 dark:hover:bg-rose-950/40 dark:text-rose-400 flex items-center gap-1.5 transition-colors cursor-pointer"
-                    title="刪除此 Project 及旗下所有工時紀錄"
+                {isSettingsMenuOpen && (
+                  <div
+                    className="absolute right-0 top-full mt-2 w-52 rounded-2xl bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 shadow-xl z-50 p-1.5 space-y-1 animate-in fade-in-50 zoom-in-95"
+                    onClick={() => setIsSettingsMenuOpen(false)}
                   >
-                    <FolderMinus size={13} />
-                    <span>刪除 Project</span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditModalOpen(true)}
+                      className="w-full text-left px-3 py-2 rounded-xl text-xs font-bold hover:bg-stone-100 dark:hover:bg-slate-800 text-stone-700 dark:text-slate-200 flex items-center gap-2 transition-colors cursor-pointer"
+                    >
+                      <Edit2 size={14} className="text-stone-500 dark:text-slate-400" />
+                      <span>編輯 Project</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsBatchDeleteModalOpen(true)}
+                      className="w-full text-left px-3 py-2 rounded-xl text-xs font-bold hover:bg-stone-100 dark:hover:bg-slate-800 text-stone-700 dark:text-slate-200 flex items-center gap-2 transition-colors cursor-pointer"
+                    >
+                      <Layers size={14} className="text-stone-500 dark:text-slate-400" />
+                      <span>管理 Project</span>
+                    </button>
+
+                    {onDeleteProject && (
+                      <button
+                        type="button"
+                        onClick={() => setIsDeleteProjectModalOpen(true)}
+                        className="w-full text-left px-3 py-2 rounded-xl text-xs font-bold hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 flex items-center gap-2 transition-colors cursor-pointer border-t border-stone-100 dark:border-slate-800 pt-1.5 mt-0.5"
+                      >
+                        <FolderMinus size={14} />
+                        <span>刪除此 Project</span>
+                      </button>
+                    )}
+                  </div>
                 )}
-
-                <button
-                  onClick={() => setIsBatchDeleteModalOpen(true)}
-                  className="px-3 py-1.5 rounded-xl text-xs font-bold border border-rose-300 hover:bg-rose-100 text-rose-800 dark:border-rose-800 dark:hover:bg-rose-900/50 dark:text-rose-300 flex items-center gap-1.5 transition-colors cursor-pointer"
-                  title="開啟批量刪除 Project 管理彈窗"
-                >
-                  <Layers size={13} />
-                  <span>批量刪除 Project</span>
-                </button>
               </div>
             </div>
 
-            {/* Project Title Header */}
-            <div className="pt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="space-y-2 w-full">
-                {/* Line 1: Project Name, Client Badge, Category Badge & Dynamic Created Date */}
-                <div className="flex items-center gap-2.5 flex-wrap w-full">
-                  <h2 className="text-2xl sm:text-3xl font-black text-stone-900 dark:text-slate-100 tracking-tight">
-                    {currentProject.name}
-                  </h2>
-                  <span
-                    className="text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5 border shadow-2xs"
-                    style={{
-                      backgroundColor: `${clientColor}18`,
-                      color: clientColor,
-                      borderColor: `${clientColor}40`,
-                    }}
-                  >
-                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: clientColor }} />
-                    <span>Client: {currentProject.clientName}</span>
-                  </span>
-                  {currentProject.category && (
-                    <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-stone-100 dark:bg-slate-800 text-stone-600 dark:text-slate-300 border border-stone-200 dark:border-slate-700">
-                      {currentProject.category}
-                    </span>
-                  )}
-                  <span className="text-xs font-semibold text-stone-500 dark:text-slate-400 sm:ml-auto flex items-center gap-1 shrink-0">
-                    <span>建立於</span>
-                    <span className="font-mono">{currentProject.createdAt ? currentProject.createdAt.replace(/-/g, '/') : '2026/09/19'}</span>
-                  </span>
-                </div>
+            {/* Project Title Header via unified ProjectHeader component */}
+            <ProjectHeader project={currentProject} showTitle={true} className="pt-4" />
 
-                {/* Line 2: Clean metrics with NO trailing date or timesheet count */}
-                <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap text-xs sm:text-sm text-stone-500 dark:text-slate-400 pt-1">
-                  <span>當前 Project 累計淨工時：</span>
-                  <span className="font-mono text-lg sm:text-xl font-black text-stone-900 dark:text-slate-100 tracking-tight">
-                    {totalDurationFormatted}
-                  </span>
-                  <span className="mx-1 text-stone-300 dark:text-slate-700 font-bold">·</span>
-                  <span>總收益：</span>
-                  <span className="font-mono text-lg sm:text-xl font-black text-blue-600 dark:text-blue-400 tracking-tight">
-                    HK$ {currentProject.totalContractAmount.toLocaleString()}
-                  </span>
-                </div>
-              </div>
+            {/* MIDDLE PART: Horizontal Divider Line & Collapsible Header */}
+            <div className="my-4 pt-2 border-t border-stone-200/80 dark:border-slate-800 flex items-center justify-between gap-3">
+              <span className="text-sm sm:text-base font-black text-stone-900 dark:text-slate-100 flex items-center gap-2">
+                <TrendingUp size={18} className="text-emerald-600 dark:text-emerald-400" />
+                <span>專案數據統計</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsMetricsExpanded((prev) => !prev)}
+                className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-extrabold border transition-all cursor-pointer flex items-center gap-1.5 shadow-xs ${
+                  isWarm
+                    ? 'border-emerald-300 hover:bg-emerald-100/80 text-emerald-800 bg-emerald-50/80'
+                    : 'border-emerald-800 hover:bg-emerald-950/60 text-emerald-300 bg-emerald-950/40'
+                }`}
+              >
+                <span>{isMetricsExpanded ? '收摺數據' : '查看數據'}</span>
+                {isMetricsExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              </button>
             </div>
-          </div>
-        );
-      })()}
 
-      {/* ============================================================ */}
-      {/* 4-IN-1 UNIFIED METRIC DASHBOARD CONTAINER */}
-      {/* ============================================================ */}
-      <div
-        className={`rounded-3xl border transition-all overflow-hidden ${
-          isWarm ? 'bg-white border-stone-200 shadow-sm' : 'bg-slate-900 border-slate-800'
-        }`}
-      >
-        <div className="grid grid-cols-1 divide-y sm:divide-y-0 sm:divide-x divide-stone-200/80 dark:divide-slate-800 sm:grid-cols-2 lg:grid-cols-4">
+            {/* BOTTOM PART: 4 Metric Cards Grid (Collapsible) */}
+            {isMetricsExpanded && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-in fade-in-50 duration-200">
           {/* Block 1: 專案總工時 */}
-          <div className="p-5 sm:p-6 flex flex-col justify-between">
+          <div
+            className={`rounded-2xl p-4 sm:p-5 border transition-all flex flex-col justify-between ${
+              isWarm ? 'bg-stone-50/80 border-stone-200/80' : 'bg-slate-950/60 border-slate-800'
+            }`}
+          >
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-bold text-stone-500 dark:text-slate-400">專案總工時</span>
               <div className="p-2 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400">
@@ -655,7 +671,11 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
           </div>
 
           {/* Block 2: 專案總收益 */}
-          <div className="p-5 sm:p-6 flex flex-col justify-between">
+          <div
+            className={`rounded-2xl p-4 sm:p-5 border transition-all flex flex-col justify-between ${
+              isWarm ? 'bg-stone-50/80 border-stone-200/80' : 'bg-slate-950/60 border-slate-800'
+            }`}
+          >
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-bold text-stone-500 dark:text-slate-400">專案總收益</span>
               <div className="p-2 rounded-xl bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400">
@@ -673,86 +693,86 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
           </div>
 
           {/* Block 3: 即時有效時薪 (In-Card Toggle with Eye & Slider Switch) */}
-          {(() => {
-            const isHourlyRateVisible = hourlyRateVisibilityMap && viewProjectId
-              ? hourlyRateVisibilityMap[viewProjectId] !== false
-              : showHourlyRate;
-
-            return (
-              <div className="p-5 sm:p-6 flex flex-col justify-between">
-                <div className="flex items-center justify-between mb-3 gap-2">
-                  <span className="text-xs font-bold text-stone-500 dark:text-slate-400">即時有效時薪</span>
-                  {onToggleShowHourlyRate && (
-                    <button
-                      type="button"
-                      onClick={() => onToggleShowHourlyRate(viewProjectId)}
-                      className={`px-2.5 py-1 rounded-full text-[11px] font-extrabold flex items-center gap-1.5 border transition-all cursor-pointer shadow-2xs ${
-                        isHourlyRateVisible
-                          ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/60'
-                          : 'bg-stone-100 dark:bg-slate-800 text-stone-500 dark:text-slate-400 border-stone-200 dark:border-slate-700 hover:bg-stone-200 dark:hover:bg-slate-700'
-                      }`}
-                      title={isHourlyRateVisible ? '點擊關閉即時時薪計算' : '點擊開啟即時時薪計算'}
-                    >
-                      {/* Visual Slider Pill Switch Track */}
-                      <span
-                        className={`w-6 h-3.5 rounded-full p-0.5 flex items-center transition-colors shrink-0 ${
-                          isHourlyRateVisible ? 'bg-emerald-600 justify-end' : 'bg-stone-400 dark:bg-slate-600 justify-start'
-                        }`}
-                      >
-                        <span className="w-2.5 h-2.5 rounded-full bg-white shadow-2xs" />
-                      </span>
-                      <span className="flex items-center gap-1 shrink-0">
-                        {isHourlyRateVisible ? <Eye size={12} /> : <EyeOff size={12} />}
-                        <span>{isHourlyRateVisible ? '顯示計算' : '隱藏計算'}</span>
-                      </span>
-                    </button>
-                  )}
-                </div>
-                <div>
-                  {isHourlyRateVisible ? (
-                    <>
-                      <div
-                        className={`font-mono text-2xl sm:text-3xl font-black ${
-                          budgetUsagePercent > 100
-                            ? 'text-rose-600 dark:text-rose-400'
-                            : 'text-emerald-600 dark:text-emerald-400'
-                        }`}
-                      >
-                        {effectiveHourlyRateText}
-                      </div>
-                      <div className="text-[11px] text-stone-400 mt-1.5 flex flex-col gap-0.5">
-                        <div className="flex items-center justify-between">
-                          <span>總收益 ÷ 累計總工時</span>
-                          {budgetUsagePercent > 100 && (
-                            <span className="text-rose-500 font-bold">⚠️ 超時拉低</span>
-                          )}
-                        </div>
-                        <span className="text-[10px] text-stone-400 dark:text-slate-500">
-                          {isUnderOneHour
-                            ? '💡 累計滿 1 小時後將自動轉換為實質動態時薪'
-                            : '💡 根據實質累計工時動態計算'}
-                        </span>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="text-sm sm:text-base font-bold text-stone-500 dark:text-slate-400 py-1 flex items-center gap-1.5">
-                        <span>📈 即時計算時薪功能已關閉</span>
-                      </div>
-                      <div className="text-[11px] text-stone-400 mt-1.5 flex flex-col gap-0.5">
-                        <span className="text-[10px] text-stone-400 dark:text-slate-500">
-                          💡 已隱藏即時計算時薪功能，點擊右上角「顯示計算」開關可還原顯示
-                        </span>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-            );
-          })()}
+          <div
+            className={`rounded-2xl p-4 sm:p-5 border transition-all flex flex-col justify-between ${
+              isWarm ? 'bg-stone-50/80 border-stone-200/80' : 'bg-slate-950/60 border-slate-800'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-3 gap-2">
+              <span className="text-xs font-bold text-stone-500 dark:text-slate-400">即時有效時薪</span>
+              {onToggleShowHourlyRate && (
+                <button
+                  type="button"
+                  onClick={() => onToggleShowHourlyRate(viewProjectId)}
+                  className={`px-2.5 py-1 rounded-full text-[11px] font-extrabold flex items-center gap-1.5 border transition-all cursor-pointer shadow-2xs ${
+                    isHourlyRateVisible
+                      ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/60'
+                      : 'bg-stone-100 dark:bg-slate-800 text-stone-500 dark:text-slate-400 border-stone-200 dark:border-slate-700 hover:bg-stone-200 dark:hover:bg-slate-700'
+                  }`}
+                  title={isHourlyRateVisible ? '點擊關閉即時時薪計算' : '點擊開啟即時時薪計算'}
+                >
+                  {/* Visual Slider Pill Switch Track */}
+                  <span
+                    className={`w-6 h-3.5 rounded-full p-0.5 flex items-center transition-colors shrink-0 ${
+                      isHourlyRateVisible ? 'bg-emerald-600 justify-end' : 'bg-stone-400 dark:bg-slate-600 justify-start'
+                    }`}
+                  >
+                    <span className="w-2.5 h-2.5 rounded-full bg-white shadow-2xs" />
+                  </span>
+                  <span className="flex items-center gap-1 shrink-0">
+                    {isHourlyRateVisible ? <Eye size={12} /> : <EyeOff size={12} />}
+                    <span>{isHourlyRateVisible ? '顯示計算' : '隱藏計算'}</span>
+                  </span>
+                </button>
+              )}
+            </div>
+            <div>
+              {isHourlyRateVisible ? (
+                <>
+                  <div
+                    className={`font-mono text-2xl sm:text-3xl font-black ${
+                      budgetUsagePercent > 100
+                        ? 'text-rose-600 dark:text-rose-400'
+                        : 'text-emerald-600 dark:text-emerald-400'
+                    }`}
+                  >
+                    {effectiveHourlyRateText}
+                  </div>
+                  <div className="text-[11px] text-stone-400 mt-1.5 flex flex-col gap-0.5">
+                    <div className="flex items-center justify-between">
+                      <span>總收益 ÷ 累計總工時</span>
+                      {budgetUsagePercent > 100 && (
+                        <span className="text-rose-500 font-bold">⚠️ 超時拉低</span>
+                      )}
+                    </div>
+                    <span className="text-[10px] text-stone-400 dark:text-slate-500">
+                      {isUnderOneHour
+                        ? '💡 累計滿 1 小時後將自動轉換為實質動態時薪'
+                        : '💡 根據實質累計工時動態計算'}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="text-sm sm:text-base font-bold text-stone-500 dark:text-slate-400 py-1 flex items-center gap-1.5">
+                    <span>📈 即時計算時薪功能已關閉</span>
+                  </div>
+                  <div className="text-[11px] text-stone-400 mt-1.5 flex flex-col gap-0.5">
+                    <span className="text-[10px] text-stone-400 dark:text-slate-500">
+                      💡 已隱藏即時計算時薪功能，點擊右上角「顯示計算」開關可還原顯示
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
 
           {/* Block 4: 時間預算 / 安全工時 */}
-          <div className="p-5 sm:p-6 flex flex-col justify-between">
+          <div
+            className={`rounded-2xl p-4 sm:p-5 border transition-all flex flex-col justify-between ${
+              isWarm ? 'bg-stone-50/80 border-stone-200/80' : 'bg-slate-950/60 border-slate-800'
+            }`}
+          >
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-stone-500 dark:text-slate-400">時間預算 / 安全工時</span>
               <div
@@ -811,7 +831,8 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
             </div>
           </div>
         </div>
-      </div>
+      )}
+    </div>
 
       {/* ============================================================ */}
       {/* TIMESHEET RECORDS LIST & DELETION */}
@@ -821,12 +842,12 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
           isWarm ? 'bg-white border-stone-200 shadow-sm' : 'bg-slate-900 border-slate-800'
         }`}
       >
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-stone-100 dark:border-slate-800 mb-4 gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-stone-100 dark:border-slate-800 gap-3">
           <div>
             <h3 className="font-extrabold text-base sm:text-lg text-stone-900 dark:text-slate-100">
-              Timesheet 詳細工時紀錄（{currentProject.name}）
+              Timesheet 詳細工時紀錄
             </h3>
-            <p className="text-xs text-stone-500 dark:text-slate-400">
+            <p className="text-xs text-stone-500 dark:text-slate-400 mt-0.5">
               包含專注計時與手動補記的所有明細，支援單筆刪除與工時即時重算
             </p>
           </div>
@@ -861,20 +882,26 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
               <Download size={13} />
               <span>匯出圖片 (PNG)</span>
             </button>
-
-            {onNavigateTab && (
-              <button
-                onClick={() => onNavigateTab('manual-entry')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors cursor-pointer shrink-0 ${
-                  isWarm
-                    ? 'border-stone-300 hover:bg-stone-100 text-stone-700'
-                    : 'border-slate-700 hover:bg-slate-800 text-slate-300'
-                }`}
-              >
-                ＋ 手動補記工時
-              </button>
-            )}
           </div>
+        </div>
+
+        {/* 專案名稱與統計資訊分組列 */}
+        <div className="pt-3 pb-3 flex items-center justify-between gap-2 border-b border-stone-100/80 dark:border-slate-800/80 mb-4">
+          <div className="flex items-center gap-2 min-w-0">
+            <span
+              className="w-2.5 h-2.5 rounded-full shrink-0"
+              style={{ backgroundColor: clientColor }}
+            />
+            <span className="font-extrabold text-sm sm:text-base text-stone-900 dark:text-slate-100 truncate">
+              {currentProject.name}
+            </span>
+            <span className="text-xs text-stone-400 dark:text-slate-500 shrink-0">
+              ({currentProject.clientName})
+            </span>
+          </div>
+          <span className="text-xs font-bold text-stone-500 dark:text-slate-400 shrink-0">
+            共 {projectSessions.length} 筆紀錄
+          </span>
         </div>
 
         {projectSessions.length === 0 ? (
@@ -1095,14 +1122,66 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
 
                         {/* Content */}
                         <td className="py-3.5 px-4 align-top">
-                          <p className="text-xs sm:text-sm text-stone-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed break-words font-sans">
-                            {memoItem.content}
-                          </p>
+                          {editingMemoId === memoItem.id ? (
+                            <div className="space-y-2">
+                              <textarea
+                                rows={3}
+                                value={editingMemoContent}
+                                onChange={(e) => setEditingMemoContent(e.target.value)}
+                                className={`w-full text-xs sm:text-sm rounded-xl p-3 border outline-none transition-all resize-y ${
+                                  isWarm
+                                    ? 'bg-stone-50 border-stone-300 text-stone-900 focus:bg-white focus:ring-2 focus:ring-emerald-500'
+                                    : 'bg-slate-950 border-slate-700 text-slate-100 focus:ring-2 focus:ring-emerald-500'
+                                }`}
+                              />
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleSaveEditMemo(memoItem.id)}
+                                  className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-all shadow-xs flex items-center gap-1 cursor-pointer"
+                                >
+                                  <Check size={13} />
+                                  <span>儲存修改</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={handleCancelEditMemo}
+                                  className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                                    isWarm
+                                      ? 'bg-stone-100 hover:bg-stone-200 border-stone-300 text-stone-700'
+                                      : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300'
+                                  }`}
+                                >
+                                  取消
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="text-xs sm:text-sm text-stone-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed break-words font-sans">
+                              {memoItem.content}
+                            </p>
+                          )}
                         </td>
 
                         {/* Actions */}
                         <td className="py-3.5 px-4 align-top text-right whitespace-nowrap">
                           <div className="inline-flex items-center justify-end gap-1.5">
+                            {/* Edit Button */}
+                            <button
+                              type="button"
+                              onClick={() => handleStartEditMemo(memoItem)}
+                              className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
+                                editingMemoId === memoItem.id
+                                  ? 'bg-amber-500 text-white border-amber-500'
+                                  : isWarm
+                                  ? 'border-stone-200 text-stone-600 hover:text-amber-600 hover:bg-amber-50 hover:border-amber-300'
+                                  : 'border-slate-700 text-slate-300 hover:text-amber-400 hover:bg-amber-950/40 hover:border-amber-700'
+                              }`}
+                              title="編輯此筆記"
+                            >
+                              <Edit2 size={14} />
+                            </button>
+
                             {/* Copy Button */}
                             <button
                               type="button"
@@ -1150,6 +1229,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
         onClose={() => setIsEditModalOpen(false)}
         project={currentProject}
         onUpdateProject={onUpdateProject}
+        existingClients={existingClients}
       />
 
       {/* Confirm Delete Single Session Modal */}
@@ -1184,6 +1264,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
         onClose={() => setIsBatchDeleteModalOpen(false)}
         projects={projects}
         onConfirmDelete={handleBatchDeleteProjects}
+        onMoveProjects={onMoveProjects}
       />
     </div>
   );

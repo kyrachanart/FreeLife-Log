@@ -1,0 +1,31 @@
+{
+  "id": "/",
+  "name": "FreeLife Log",
+  "short_name": "FreeLifeLog",
+  "description": "專為 Freelancer 設計的極簡工時追蹤與合約總額預算管理系統，支援精準計時、目標時薪底線防護、手動補記工時與改稿追加報價計算",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f8f5eb",
+  "theme_color": "#608b68",
+  "icons": [
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

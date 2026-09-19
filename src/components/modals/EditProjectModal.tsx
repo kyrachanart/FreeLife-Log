@@ -10,6 +10,7 @@ interface EditProjectModalProps {
   onClose: () => void;
   project: Project | null;
   onUpdateProject: (project: Project) => void;
+  existingClients?: string[];
 }
 
 export const EditProjectModal: React.FC<EditProjectModalProps> = ({
@@ -17,12 +18,17 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
   onClose,
   project,
   onUpdateProject,
+  existingClients = [],
 }) => {
   const { theme } = useTheme();
   const isWarm = theme === 'warm';
 
   const [name, setName] = useState('');
-  const [clientName, setClientName] = useState('');
+  
+  // Client selection mode & custom client input
+  const [selectedClientOption, setSelectedClientOption] = useState<string>('');
+  const [customClientName, setCustomClientName] = useState<string>('');
+
   const [clientColor, setClientColor] = useState<string>(PRESET_CLIENT_COLORS[0].hex);
   const [category, setCategory] = useState('');
   const [recentCategories, setRecentCategories] = useState<string[]>([]);
@@ -32,8 +38,25 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
   useEffect(() => {
     if (project && isOpen) {
       setName(project.name);
-      setClientName(project.clientName);
-      setClientColor(project.clientColor || project.color || getClientColor(project.clientName));
+      const projClient = (project.clientName || '').trim();
+      
+      if (existingClients.includes(projClient)) {
+        setSelectedClientOption(projClient);
+        setCustomClientName('');
+      } else {
+        if (projClient) {
+          setSelectedClientOption('__NEW_CLIENT__');
+          setCustomClientName(projClient);
+        } else if (existingClients.length > 0) {
+          setSelectedClientOption(existingClients[0]);
+          setCustomClientName('');
+        } else {
+          setSelectedClientOption('__NEW_CLIENT__');
+          setCustomClientName('');
+        }
+      }
+
+      setClientColor(project.clientColor || project.color || getClientColor(projClient));
       setCategory(project.category || '');
       setRecentCategories(getRecentCategories());
       setTotalContractAmount(project.totalContractAmount ?? 0);
@@ -43,20 +66,25 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
           : ''
       );
     }
-  }, [project, isOpen]);
+  }, [project, isOpen, existingClients]);
 
   if (!isOpen || !project) return null;
 
+  const currentDisplayClientName =
+    selectedClientOption === '__NEW_CLIENT__' ? customClientName.trim() : selectedClientOption.trim();
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !clientName.trim()) return;
+    const finalClient = currentDisplayClientName;
+
+    if (!name.trim() || !finalClient) return;
 
     if (category.trim()) {
       saveRecentCategory(category.trim());
     }
 
-    const finalColor = clientColor.trim().startsWith('#') ? clientColor.trim() : getClientColor(clientName.trim());
-    saveClientColor(clientName.trim(), finalColor);
+    const finalColor = clientColor.trim().startsWith('#') ? clientColor.trim() : getClientColor(finalClient);
+    saveClientColor(finalClient, finalColor);
 
     const parsedContractAmount = totalContractAmount === '' ? 0 : Number(totalContractAmount) || 0;
     const parsedEstimatedHours = estimatedHours === '' ? undefined : Number(estimatedHours);
@@ -64,7 +92,7 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
     const updated: Project = {
       ...project,
       name: name.trim(),
-      clientName: clientName.trim(),
+      clientName: finalClient,
       clientColor: finalColor,
       color: finalColor,
       category: category.trim() || 'General',
@@ -122,17 +150,48 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
             <label className="block text-xs font-bold text-stone-500 dark:text-slate-400 mb-1">
               Client 名稱 <span className="text-rose-500">*</span>
             </label>
-            <input
-              type="text"
-              required
-              value={clientName}
-              onChange={(e) => setClientName(e.target.value)}
-              className={`w-full text-xs sm:text-sm rounded-xl px-3.5 py-2.5 border outline-none ${
+            <select
+              value={selectedClientOption}
+              onChange={(e) => {
+                const val = e.target.value;
+                setSelectedClientOption(val);
+                if (val !== '__NEW_CLIENT__') {
+                  setClientColor(getClientColor(val));
+                }
+              }}
+              className={`w-full text-xs sm:text-sm rounded-xl px-3.5 py-2.5 border outline-none cursor-pointer ${
                 isWarm
                   ? 'bg-stone-50 border-stone-300 text-stone-900 focus:ring-2 focus:ring-emerald-500'
                   : 'bg-slate-950 border-slate-700 text-slate-100 focus:ring-2 focus:ring-emerald-500'
               }`}
-            />
+            >
+              {existingClients.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+              <option value="__NEW_CLIENT__">＋ 新增客戶 (New Client)</option>
+            </select>
+
+            {selectedClientOption === '__NEW_CLIENT__' && (
+              <input
+                type="text"
+                required
+                placeholder="請輸入新 Client 名稱..."
+                value={customClientName}
+                onChange={(e) => {
+                  setCustomClientName(e.target.value);
+                  if (e.target.value.trim()) {
+                    setClientColor(getClientColor(e.target.value.trim()));
+                  }
+                }}
+                className={`w-full text-xs sm:text-sm rounded-xl px-3.5 py-2.5 border outline-none mt-2 ${
+                  isWarm
+                    ? 'bg-stone-50 border-stone-300 text-stone-900 focus:ring-2 focus:ring-emerald-500'
+                    : 'bg-slate-950 border-slate-700 text-slate-100 focus:ring-2 focus:ring-emerald-500'
+                }`}
+              />
+            )}
 
             {/* Client 代表色 / 標籤顏色選擇器 */}
             <div className="pt-2">
@@ -151,7 +210,7 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
                   }}
                 >
                   <span className="w-2 h-2 rounded-full" style={{ backgroundColor: clientColor }} />
-                  <span>{clientName || '預覽'}</span>
+                  <span>{currentDisplayClientName || '預覽'}</span>
                 </div>
               </div>
 
