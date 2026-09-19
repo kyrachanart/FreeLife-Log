@@ -5,6 +5,33 @@ import './index.css';
 
 // Suppress benign Vite WebSocket / HMR disconnection console noise
 if (typeof window !== 'undefined') {
+  const originalError = console.error;
+  const originalWarn = console.warn;
+
+  console.error = (...args: any[]) => {
+    const firstArgStr = String(args[0] || '');
+    if (
+      firstArgStr.includes('[vite]') ||
+      firstArgStr.includes('WebSocket') ||
+      firstArgStr.includes('failed to connect to websocket')
+    ) {
+      return;
+    }
+    originalError.apply(console, args);
+  };
+
+  console.warn = (...args: any[]) => {
+    const firstArgStr = String(args[0] || '');
+    if (
+      firstArgStr.includes('[vite]') ||
+      firstArgStr.includes('WebSocket') ||
+      firstArgStr.includes('failed to connect to websocket')
+    ) {
+      return;
+    }
+    originalWarn.apply(console, args);
+  };
+
   window.addEventListener('unhandledrejection', (event) => {
     const reason = event.reason;
     const msg = typeof reason === 'string' ? reason : reason?.message || String(reason || '');

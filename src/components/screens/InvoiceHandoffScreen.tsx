@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { FileText, Download, Share2, Check, Copy, ExternalLink, Printer, ShieldCheck } from 'lucide-react';
 import { Project, TimeSession } from '../../types';
 import { useTheme } from '../../ThemeContext';
+import { exportTimesheetPDF } from '../../utils/pdfExport';
 
 interface InvoiceHandoffScreenProps {
   projects: Project[];
@@ -37,9 +38,18 @@ export const InvoiceHandoffScreen: React.FC<InvoiceHandoffScreenProps> = ({
     setTimeout(() => setCopied(false), 2500);
   };
 
-  const handleDownloadPDF = () => {
-    setDownloaded(true);
-    setTimeout(() => setDownloaded(false), 2500);
+  const handleDownloadPDF = async () => {
+    try {
+      setDownloaded(true);
+      await exportTimesheetPDF({
+        project: currentProject,
+        sessions: projectSessions,
+      });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setTimeout(() => setDownloaded(false), 2500);
+    }
   };
 
   return (

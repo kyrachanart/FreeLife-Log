@@ -84,6 +84,7 @@ export interface ClientProfile {
 
 export interface TimerBridge {
   isRunning: boolean;
+  timerState?: 'idle' | 'working' | 'resting';
   projectId: string;
   projectName: string;
   elapsedFormatted: string;

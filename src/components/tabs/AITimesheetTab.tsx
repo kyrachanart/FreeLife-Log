@@ -74,7 +74,7 @@ export const AITimesheetTab: React.FC<AITimesheetTabProps> = ({
   // Scope Creep Simulator States (Default Collapsed as requested)
   const [isScopeCreepExpanded, setIsScopeCreepExpanded] = useState<boolean>(false);
   const [scopeCreepProjectId, setScopeCreepProjectId] = useState<string>(() => projects[0]?.id || '');
-  const [scopeCreepHours, setScopeCreepHours] = useState<number>(6);
+  const [scopeCreepHours, setScopeCreepHours] = useState<number>(1);
   const [copiedQuote, setCopiedQuote] = useState<boolean>(false);
 
   const showToast = (msg: string) => {

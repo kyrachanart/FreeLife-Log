@@ -37,6 +37,7 @@ import {
 
 export interface ActiveTimerSaveState {
   selectedProjectId: string;
+  timerProjectId?: string | null;
   taskNote: string;
   taskTag: string;
   timerState: 'idle' | 'working' | 'resting';
@@ -131,6 +132,17 @@ export const TimerTab: React.FC<TimerTabProps> = ({
   // Check if timer is actively running or has uncommitted recorded time
   const isTimerRunning = timerState === 'working' || timerState === 'resting' || accumulatedWorkSeconds > 0;
 
+  // Locked timer project ID (decoupled from selected view project)
+  const [timerProjectId, setTimerProjectId] = useState<string | null>(() => {
+    if (savedTimer?.timerProjectId && projects.some((p) => p.id === savedTimer.timerProjectId)) {
+      return savedTimer.timerProjectId;
+    }
+    if (isTimerRunning && savedTimer?.selectedProjectId) {
+      return savedTimer.selectedProjectId;
+    }
+    return null;
+  });
+
   // Interception Modal states for project switch or new project attempts
   const [isInterceptionModalOpen, setIsInterceptionModalOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<
@@ -139,14 +151,19 @@ export const TimerTab: React.FC<TimerTabProps> = ({
     | null
   >(null);
 
-  // Synchronize when global activeProjectId changes externally
+  // Synchronize when global activeProjectId changes externally (only when idle)
   useEffect(() => {
-    if (activeProjectId && activeProjectId !== selectedProjectId && projects.some((p) => p.id === activeProjectId)) {
-      // If timer is running in this tab, do not automatically override selectedProjectId without user consent
-      if (isTimerRunning) return;
-      setSelectedProjectId(activeProjectId);
+    if (
+      activeProjectId &&
+      activeProjectId !== selectedProjectId &&
+      projects.some((p) => p.id === activeProjectId)
+    ) {
+      if (!isTimerRunning) {
+        setSelectedProjectId(activeProjectId);
+        setTimerProjectId(activeProjectId);
+      }
     }
-  }, [activeProjectId, isTimerRunning, projects, selectedProjectId]);
+  }, [activeProjectId, projects, selectedProjectId, isTimerRunning]);
 
   // Interval Ref to ensure complete cleanup on reset or unmount
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -156,6 +173,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
 
   // Toast and alert snooze states
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastType, setToastType] = useState<'focus' | 'break'>('focus');
   const [snoozedAlert, setSnoozedAlert] = useState(false);
 
   // Keep selectedProjectId synchronized if project list changes
@@ -169,8 +187,23 @@ export const TimerTab: React.FC<TimerTabProps> = ({
     }
   }, [projects, selectedProjectId]);
 
-  const currentProject = projects.find((p) => p.id === selectedProjectId);
-  const isFixed = currentProject?.feeType === 'fixed';
+  // Current selected project for viewing in top selector
+  const currentProject = useMemo(() => {
+    if (projects.length === 0) return null;
+    return projects.find((p) => p.id === selectedProjectId) || projects[0];
+  }, [projects, selectedProjectId]);
+
+  // Locked Project being timed (strictly preserves project when timer was started)
+  const timerProject = useMemo(() => {
+    if (isTimerRunning && timerProjectId) {
+      const found = projects.find((p) => p.id === timerProjectId);
+      if (found) return found;
+    }
+    return currentProject;
+  }, [isTimerRunning, timerProjectId, projects, currentProject]);
+
+  const activeTimerProject = timerProject || currentProject;
+  const isFixed = activeTimerProject?.feeType === 'fixed';
 
   // 2. Timestamp Delta Live Calculator: returns precise elapsed seconds at this instant
   const getLiveWorkSeconds = useCallback((): number => {
@@ -241,6 +274,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
     ) {
       saveToLocalStorage(LOCAL_STORAGE_KEYS.TIMER_STATE, {
         selectedProjectId,
+        timerProjectId,
         taskNote,
         taskTag: 'UI/UX',
         timerState,
@@ -261,6 +295,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
     accumulatedWorkSeconds,
     accumulatedBreakSeconds,
     selectedProjectId,
+    timerProjectId,
     taskNote,
     sessionStartTime,
     continuousWorkStartTime,
@@ -269,7 +304,8 @@ export const TimerTab: React.FC<TimerTabProps> = ({
   // Synchronize TimerBridge with parent
   const executeStopAndSave = useCallback(
     (onComplete?: () => void) => {
-      if (!currentProject) {
+      const targetProj = activeTimerProject;
+      if (!targetProj) {
         if (onComplete) onComplete();
         return;
       }
@@ -287,15 +323,15 @@ export const TimerTab: React.FC<TimerTabProps> = ({
       const workMinutes = Math.max(1, Math.round(finalWorkSec / 60));
       const breakMinutes = Math.round(finalBreakSec / 60);
 
-      const projectRate = currentProject.targetHourlyRate || 600;
+      const projectRate = targetProj.targetHourlyRate || 600;
       const sessionEarnedAmount = Math.round((workMinutes / 60) * projectRate);
       const finalNote = taskNote.trim() || '專注工作';
 
       const newSession: TimeSession = {
         id: `sess-${Date.now()}`,
-        projectId: currentProject.id,
-        projectName: currentProject.name,
-        clientName: currentProject.clientName,
+        projectId: targetProj.id,
+        projectName: targetProj.name,
+        clientName: targetProj.clientName,
         taskDescription: finalNote,
         date: now.toISOString().split('T')[0],
         startTime: sessionStartTime === '--:--' ? '09:00' : sessionStartTime,
@@ -305,13 +341,14 @@ export const TimerTab: React.FC<TimerTabProps> = ({
         effectiveHourlyRate: projectRate,
         earnedAmount: sessionEarnedAmount,
         status: 'completed',
-        tags: [isFixed ? '合約總額' : 'Hourly'].filter(Boolean),
+        tags: [targetProj.feeType === 'fixed' ? '合約總額' : 'Hourly'].filter(Boolean),
       };
 
       onSaveSession(newSession);
 
       // Reset timer states
       setTimerState('idle');
+      setTimerProjectId(null);
       setWorkStartedAt(null);
       setBreakStartedAt(null);
       setAccumulatedWorkSeconds(0);
@@ -322,7 +359,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
       setSnoozedAlert(false);
       localStorage.removeItem(LOCAL_STORAGE_KEYS.TIMER_STATE);
 
-      showToast(`✅ 已結算並儲存「${currentProject.name}」工時（${workMinutes} 分鐘）！`);
+      showToast(`✅ 已結算並儲存「${targetProj.name}」工時（${workMinutes} 分鐘）！`);
 
       if (onComplete) {
         onComplete();
@@ -346,6 +383,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
     }
 
     setTimerState('idle');
+    setTimerProjectId(null);
     setWorkStartedAt(null);
     setBreakStartedAt(null);
     setAccumulatedWorkSeconds(0);
@@ -387,22 +425,33 @@ export const TimerTab: React.FC<TimerTabProps> = ({
 
   useEffect(() => {
     if (onRegisterTimerBridgeRef.current) {
+      const isActivelyTiming = timerState === 'working' || timerState === 'resting';
+      const lockedProjId = (isActivelyTiming && timerProjectId) ? timerProjectId : (activeTimerProject?.id || selectedProjectId);
+      const lockedProj = projects.find((p) => p.id === lockedProjId) || activeTimerProject || currentProject;
+
       onRegisterTimerBridgeRef.current({
-        isRunning: isTimerRunning,
-        projectId: selectedProjectId,
-        projectName: currentProject?.name || '',
+        isRunning: isActivelyTiming,
+        timerState: timerState,
+        projectId: lockedProjId,
+        projectName: lockedProj?.name || '',
         elapsedFormatted: formatTimeRef.current(getLiveWorkSecondsRef.current()),
         stopAndSave: (cb) => executeStopAndSaveRef.current(cb),
         discard: (cb) => executeDiscardRef.current(cb),
       });
     }
   }, [
-    isTimerRunning,
+    timerState,
+    timerProjectId,
+    activeTimerProject?.id,
+    activeTimerProject?.name,
     selectedProjectId,
     currentProject?.name,
+    projects,
   ]);
 
-  const showToast = (msg: string) => {
+  const showToast = (msg: string, forcedType?: 'focus' | 'break') => {
+    const isRest = forcedType === 'break' || (!forcedType && (msg.includes('休息') || msg.includes('☕') || timerState === 'resting'));
+    setToastType(isRest ? 'break' : 'focus');
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
   };
@@ -499,6 +548,10 @@ export const TimerTab: React.FC<TimerTabProps> = ({
     setTimerState('working');
     setSnoozedAlert(false);
 
+    if (!timerProjectId && currentProject) {
+      setTimerProjectId(currentProject.id);
+    }
+
     if (!continuousWorkStartTime) {
       setContinuousWorkStartTime(now);
     }
@@ -510,7 +563,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
       );
     }
 
-    showToast('🚀 已開始專注開工計時！');
+    showToast('🚀 已開始專注開工計時！', 'focus');
   };
 
   // 2. 暫停休息 (Pause / Break)
@@ -528,12 +581,13 @@ export const TimerTab: React.FC<TimerTabProps> = ({
     setTimerState('resting');
     setContinuousWorkStartTime(null);
 
-    showToast('☕ 已切換至舒緩休息模式');
+    showToast('☕ 已切換至舒緩休息模式', 'break');
   };
 
   // 3. 完成記錄 (Stop & Save)
   const handleRecord = () => {
-    if (!currentProject) {
+    const targetProj = activeTimerProject || currentProject;
+    if (!targetProj) {
       showToast('⚠️ 找不到關聯 Project，無法記錄。');
       return;
     }
@@ -557,7 +611,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
     const workMinutes = Math.max(1, Math.round(finalWorkSec / 60));
     const breakMinutes = Math.round(finalBreakSec / 60);
 
-    const projectRate = currentProject.targetHourlyRate || 600;
+    const projectRate = targetProj.targetHourlyRate || 600;
     const sessionEarnedAmount = Math.round((workMinutes / 60) * projectRate);
 
     // Explicitly write taskNote / Project Memo to the Timesheet session (Default to '專注工作' if empty)
@@ -565,9 +619,9 @@ export const TimerTab: React.FC<TimerTabProps> = ({
 
     const newSession: TimeSession = {
       id: `sess-${Date.now()}`,
-      projectId: currentProject.id,
-      projectName: currentProject.name,
-      clientName: currentProject.clientName,
+      projectId: targetProj.id,
+      projectName: targetProj.name,
+      clientName: targetProj.clientName,
       taskDescription: finalNote,
       date: now.toISOString().split('T')[0],
       startTime: sessionStartTime === '--:--' ? '09:00' : sessionStartTime,
@@ -577,13 +631,14 @@ export const TimerTab: React.FC<TimerTabProps> = ({
       effectiveHourlyRate: projectRate,
       earnedAmount: sessionEarnedAmount,
       status: 'completed',
-      tags: [isFixed ? '一口價' : 'Hourly'].filter(Boolean),
+      tags: [targetProj.feeType === 'fixed' ? '一口價' : 'Hourly'].filter(Boolean),
     };
 
     onSaveSession(newSession);
 
     // Reset timer states while keeping selectedProjectId intact!
     setTimerState('idle');
+    setTimerProjectId(null);
     setWorkStartedAt(null);
     setBreakStartedAt(null);
     setAccumulatedWorkSeconds(0);
@@ -607,6 +662,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
 
     // 2. Reset time states to 0
     setTimerState('idle');
+    setTimerProjectId(null);
     setWorkStartedAt(null);
     setBreakStartedAt(null);
     setAccumulatedWorkSeconds(0);
@@ -621,19 +677,12 @@ export const TimerTab: React.FC<TimerTabProps> = ({
     showToast('🔄 已重置當前計時器（已保留當前 Project）');
   };
 
-  // Interception handlers for project change and new project modal
+  // Handlers for project change (only allowed when idle, guarded by disabled dropdown)
   const handleProjectChangeAttempt = (targetId: string) => {
+    if (isTimerRunning) return;
     if (targetId === selectedProjectId) return;
-    if (isTimerRunning && onRequestInterception) {
-      onRequestInterception({ type: 'switch_project', targetProjectId: targetId });
-      return;
-    }
-    if (isTimerRunning) {
-      setPendingAction({ type: 'switch_project', targetProjectId: targetId });
-      setIsInterceptionModalOpen(true);
-      return;
-    }
     setSelectedProjectId(targetId);
+    setTimerProjectId(targetId);
     if (setActiveProjectId) setActiveProjectId(targetId);
   };
 
@@ -775,33 +824,23 @@ export const TimerTab: React.FC<TimerTabProps> = ({
     <div className="space-y-6 max-w-4xl mx-auto">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-24 right-6 z-50 bg-emerald-600 text-white px-4 py-2.5 rounded-2xl shadow-xl text-sm font-semibold flex items-center gap-2 border border-emerald-400">
-          <CheckCircle2 size={16} />
+        <div
+          id="timer-tab-toast"
+          className={`fixed top-24 right-6 z-50 text-white px-4 py-2.5 rounded-2xl shadow-xl text-sm font-semibold flex items-center gap-2 border transition-all duration-200 animate-in fade-in slide-in-from-top-2 ${
+            toastType === 'break'
+              ? 'bg-[#ea580c] border-orange-400 shadow-orange-950/20'
+              : 'bg-emerald-600 border-emerald-400 shadow-emerald-950/20'
+          }`}
+        >
+          {toastType === 'break' ? (
+            <Coffee size={16} className="text-white shrink-0" />
+          ) : (
+            <CheckCircle2 size={16} className="text-white shrink-0" />
+          )}
           <span>{toastMessage}</span>
         </div>
       )}
 
-      {/* Dynamic Active Timer Banner when browsing a different project */}
-      {timerState !== 'idle' && selectedProjectId !== activeProjectId && (
-        <div className="rounded-2xl p-4 bg-emerald-50 dark:bg-emerald-950/40 border-2 border-emerald-500/60 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in duration-200">
-          <div className="flex items-center gap-2.5">
-            <span className="relative flex h-3 w-3 shrink-0">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-            </span>
-            <span className="text-xs sm:text-sm font-black text-emerald-950 dark:text-emerald-200">
-              ⏱️ 正在為「{projects.find((p) => p.id === activeProjectId)?.name || '當前專案'}」計時中
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setSelectedProjectId(activeProjectId)}
-            className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black transition-all cursor-pointer shadow-xs self-end sm:self-auto shrink-0 flex items-center gap-1"
-          >
-            回到計時專案 ➔
-          </button>
-        </div>
-      )}
       {isTwoHourAlertActive && (
         <div className="rounded-3xl p-5 sm:p-6 bg-gradient-to-r from-amber-500/20 via-amber-500/10 to-amber-500/20 border-2 border-amber-500 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4 animate-pulse">
           <div className="flex items-center gap-3">
@@ -838,13 +877,17 @@ export const TimerTab: React.FC<TimerTabProps> = ({
 
       {/* Top Project Selector & Header */}
       {(() => {
-        const clientColor = currentProject
-          ? getClientColor(currentProject.clientName, currentProject.clientColor || currentProject.color)
+        const displayProj = currentProject;
+        const clientColor = displayProj
+          ? getClientColor(displayProj.clientName, displayProj.clientColor || displayProj.color)
           : '#2563EB';
+        const formattedDate = displayProj?.createdAt
+          ? displayProj.createdAt.replace(/-/g, '/')
+          : '2026/09/19';
 
         return (
           <div
-            className={`rounded-3xl p-6 sm:p-7 border transition-all ${
+            className={`rounded-3xl p-3.5 sm:p-4 border transition-all ${
               isWarm ? 'bg-white border-stone-200 shadow-sm' : 'bg-slate-900 border-slate-800'
             }`}
             style={{
@@ -852,42 +895,218 @@ export const TimerTab: React.FC<TimerTabProps> = ({
               borderLeftColor: clientColor,
             }}
           >
-            <div className="space-y-3">
-              {projects.length > 0 ? (
-                <div className="flex items-center gap-2 w-full">
-                  {/* Left: Project dropdown selector */}
-                  <span className="text-xs font-bold text-stone-500 dark:text-slate-400 whitespace-nowrap shrink-0">
+            {projects.length > 0 ? (
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 w-full text-xs">
+                {/* 1. 第一列 (Mobile): 選擇 PROJECT 與 佔滿剩餘寬度的下拉選單 */}
+                <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+                  <span className="font-bold text-stone-500 dark:text-slate-400 whitespace-nowrap shrink-0">
                     選擇 PROJECT:
                   </span>
-                  <ProjectSelectDropdown
-                    projects={projects}
-                    selectedProjectId={selectedProjectId}
-                    onSelectProject={(id) => handleProjectChangeAttempt(id)}
-                    className="w-full max-w-sm sm:max-w-md"
-                  />
+                  <div className="flex-1 min-w-0 sm:w-[210px]">
+                    <ProjectSelectDropdown
+                      projects={projects}
+                      selectedProjectId={selectedProjectId}
+                      onSelectProject={(id) => handleProjectChangeAttempt(id)}
+                      disabled={isTimerRunning}
+                      className="w-full"
+                    />
+                  </div>
                 </div>
-              ) : (
-                <span className="text-xs text-stone-400">尚無 Project，請點擊上方「+ 新增 Project」建立</span>
-              )}
 
-              {/* Client & Category Tags via unified ProjectHeader */}
-              {currentProject && (
-                <ProjectHeader
-                  project={currentProject}
-                  showTitle={false}
-                  className="pt-2.5 border-t border-stone-100 dark:border-slate-800"
-                />
-              )}
-            </div>
+                {/* 2. 第二列 (Mobile) / 右側區域 (Desktop): Client 標籤、類別標籤與建立日期 */}
+                {displayProj && (
+                  <div className="flex flex-wrap items-center justify-between gap-2 w-full sm:w-auto sm:flex-1 sm:justify-end sm:gap-3 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                      <span
+                        className="font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5 border shadow-2xs shrink-0 max-w-full"
+                        style={{
+                          backgroundColor: `${clientColor}18`,
+                          color: clientColor,
+                          borderColor: `${clientColor}40`,
+                        }}
+                      >
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: clientColor }} />
+                        <span className="truncate max-w-[130px] sm:max-w-none">Client: {displayProj.clientName}</span>
+                      </span>
+
+                      {displayProj.category && (
+                        <span className="font-bold px-2.5 py-1 rounded-full bg-stone-100 dark:bg-slate-800 text-stone-600 dark:text-slate-300 border border-stone-200 dark:border-slate-700 shrink-0 whitespace-nowrap">
+                          {displayProj.category}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* 建立日期 */}
+                    <div className="shrink-0 font-semibold text-stone-500 dark:text-slate-400 whitespace-nowrap text-[11px] sm:text-xs">
+                      建立於 <span className="font-mono">{formattedDate}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <span className="text-xs text-stone-400">尚無 Project，請點擊上方「+ 新增 Project」建立</span>
+            )}
           </div>
         );
       })()}
 
+      {/* ============================================================ */}
+      {/* 2. CONSOLIDATED TIMER CONTROL PANEL & WORK CONTENT (POSITIONED ABOVE TIMERS) */}
+      {/* ============================================================ */}
+      <div
+        className={`rounded-3xl p-4 sm:p-5 border transition-all ${
+          isWarm ? 'bg-white border-stone-200 shadow-sm' : 'bg-slate-900 border-slate-800'
+        }`}
+      >
+        {/* UNIFIED CONTROLS ACCORDING TO TIMER STATE */}
+        {timerState === 'idle' ? (
+          <div className="flex flex-col items-center justify-center space-y-2.5">
+            <div className="flex items-center justify-center gap-3 w-full max-w-md">
+              {/* PRIMARY BIG GREEN BUTTON: 【▶ 開始工作】 */}
+              <button
+                onClick={handleStart}
+                disabled={!hasProject}
+                className={`flex-1 py-3.5 px-6 rounded-2xl font-black text-base sm:text-lg flex items-center justify-center gap-2.5 transition-all shadow-lg ${
+                  hasProject
+                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/35 cursor-pointer hover:scale-102 active:scale-98'
+                    : 'bg-stone-300 dark:bg-slate-800 text-stone-500 dark:text-slate-500 shadow-none cursor-not-allowed opacity-60'
+                }`}
+                title={hasProject ? '點擊立即開始工作' : '請先建立或選擇 Project 才能開始計時'}
+              >
+                {!hasProject ? <Lock size={20} /> : <Play size={20} fill="currentColor" />}
+                <span>開始工作</span>
+              </button>
+
+              {/* RESET BUTTON WHEN IDLE WITH ACCUMULATED SECONDS */}
+              {hasActiveSeconds && (
+                <button
+                  onClick={handleResetTimer}
+                  className={`py-3.5 px-4 rounded-2xl border font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                    isWarm
+                      ? 'border-stone-300 hover:bg-stone-100 text-stone-600'
+                      : 'border-slate-700 hover:bg-slate-800 text-slate-300'
+                  }`}
+                  title="重置當前計時器"
+                >
+                  <RotateCcw size={16} />
+                  <span>重置</span>
+                </button>
+              )}
+            </div>
+
+            {!hasProject && (
+              <p className="text-xs font-bold text-rose-600 dark:text-rose-400 text-center">
+                ⚠️ 請先建立或選擇 Project 才能開始計時
+              </p>
+            )}
+          </div>
+        ) : (
+          /* ACTIVE / RUNNING / RESTING STATE: SMOOTH SLIDE-DOWN ACCORDION FLOW */
+          <div className="space-y-4 animate-in fade-in-50 slide-in-from-top-2 duration-300">
+            {/* 1. Task Content Input Box */}
+            <div className="text-left">
+              <label className="block text-xs font-bold text-stone-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <span>💼 工作內容</span>
+                </span>
+                <span className="text-[10px] text-stone-400 font-normal">
+                  按下【完成並結算】時將自動寫入 Timesheet 工時紀錄
+                </span>
+              </label>
+              <input
+                type="text"
+                placeholder="例：封面插畫草稿、Client 追稿、開 meeting、排版校對..."
+                value={taskNote}
+                onChange={(e) => setTaskNote(e.target.value)}
+                className={`w-full text-xs sm:text-sm rounded-xl px-3.5 py-2.5 border outline-none transition-all ${
+                  isWarm
+                    ? 'bg-stone-50 border-stone-300 text-stone-900 focus:bg-white focus:ring-2 focus:ring-emerald-500'
+                    : 'bg-slate-950 border-slate-700 text-slate-100 focus:ring-2 focus:ring-emerald-500'
+                }`}
+              />
+            </div>
+
+            {/* 2. Action Buttons Row */}
+            <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3 text-center">
+              {timerState === 'working' ? (
+                <>
+                  {/* BREAK BUTTON */}
+                  <button
+                    onClick={handlePause}
+                    className="flex-1 min-w-[140px] max-w-xs py-3 px-5 rounded-2xl font-black text-sm sm:text-base bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-lg shadow-orange-500/25 flex items-center justify-center gap-2 transition-all cursor-pointer hover:scale-102 active:scale-98"
+                  >
+                    <Coffee size={18} />
+                    <span>休息</span>
+                  </button>
+
+                  {/* STOP / COMPLETE BUTTON */}
+                  <button
+                    onClick={handleRecord}
+                    className="flex-1 min-w-[140px] max-w-xs py-3 px-5 rounded-2xl font-black text-sm sm:text-base bg-rose-600 hover:bg-rose-700 text-white shadow-lg shadow-rose-600/25 flex items-center justify-center gap-2 transition-all cursor-pointer hover:scale-102 active:scale-98"
+                  >
+                    <CheckCircle2 size={18} />
+                    <span>完成並結算</span>
+                  </button>
+
+                  {/* SAFE RESET BUTTON */}
+                  <button
+                    onClick={handleResetTimer}
+                    className={`py-3 px-3 rounded-2xl border font-bold text-xs flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                      isWarm
+                        ? 'border-stone-300 hover:bg-stone-100 text-stone-600'
+                        : 'border-slate-700 hover:bg-slate-800 text-slate-300'
+                    }`}
+                    title="重置當前計時器"
+                  >
+                    <RotateCcw size={15} />
+                    <span>重置</span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  {/* RESUME BUTTON */}
+                  <button
+                    onClick={handleStart}
+                    className="flex-1 min-w-[140px] max-w-xs py-3 px-5 rounded-2xl font-black text-sm sm:text-base bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 transition-all cursor-pointer hover:scale-102 active:scale-98"
+                  >
+                    <Play size={18} fill="currentColor" />
+                    <span>繼續工作</span>
+                  </button>
+
+                  {/* STOP / COMPLETE BUTTON */}
+                  <button
+                    onClick={handleRecord}
+                    className="flex-1 min-w-[140px] max-w-xs py-3 px-5 rounded-2xl font-black text-sm sm:text-base bg-rose-600 hover:bg-rose-700 text-white shadow-lg shadow-rose-600/25 flex items-center justify-center gap-2 transition-all cursor-pointer hover:scale-102 active:scale-98"
+                  >
+                    <CheckCircle2 size={18} />
+                    <span>完成並結算</span>
+                  </button>
+
+                  {/* SAFE RESET BUTTON */}
+                  <button
+                    onClick={handleResetTimer}
+                    className={`py-3 px-3 rounded-2xl border font-bold text-xs flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                      isWarm
+                        ? 'border-stone-300 hover:bg-stone-100 text-stone-600'
+                        : 'border-slate-700 hover:bg-slate-800 text-slate-300'
+                    }`}
+                    title="重置當前計時器"
+                  >
+                    <RotateCcw size={15} />
+                    <span>重置</span>
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* DUAL TIMERS DISPLAY */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
         {/* CARD 1: 專注工作計時器 (Work Timer - Emerald) */}
         <div
-          className={`rounded-3xl p-6 sm:p-8 border transition-all relative overflow-hidden flex flex-col justify-between ${
+          className={`rounded-3xl p-4 sm:p-5 border transition-all relative overflow-hidden flex flex-col justify-between ${
             timerState === 'working'
               ? 'border-emerald-500 ring-4 ring-emerald-500/30 shadow-xl shadow-emerald-500/10 bg-emerald-50/20 dark:bg-emerald-950/20'
               : isWarm
@@ -896,7 +1115,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
           }`}
         >
           <div>
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <div
                   className={`p-2 rounded-xl text-white ${
@@ -912,7 +1131,6 @@ export const TimerTab: React.FC<TimerTabProps> = ({
                       淨工時
                     </span>
                   </h3>
-                  <p className="text-[11px] text-stone-500 dark:text-slate-400">計入實質收費與請款</p>
                 </div>
               </div>
 
@@ -935,11 +1153,11 @@ export const TimerTab: React.FC<TimerTabProps> = ({
             </div>
 
             {/* Big Work Digital Timer */}
-            <div className="my-4 text-center sm:text-left">
-              <div className="font-mono text-5xl sm:text-6xl font-black tracking-tight text-stone-950 dark:text-white select-none">
+            <div className="my-2.5 text-center sm:text-left">
+              <div className="font-mono text-4xl sm:text-5xl font-black tracking-tight text-stone-950 dark:text-white select-none">
                 {formatTime(currentWorkSeconds)}
               </div>
-              <div className="text-xs font-semibold text-stone-500 dark:text-slate-400 mt-2 flex flex-wrap items-center gap-2">
+              <div className="text-xs font-semibold text-stone-500 dark:text-slate-400 mt-1.5 flex flex-wrap items-center gap-2">
                 <span>淨投入：{(currentWorkSeconds / 3600).toFixed(2)} 小時</span>
                 <span>•</span>
                 <span>開始於：{sessionStartTime}</span>
@@ -950,14 +1168,14 @@ export const TimerTab: React.FC<TimerTabProps> = ({
 
         {/* CARD 2: 舒緩休息計時器 (Break Timer - Warm Caramel) */}
         <div
-          className={`rounded-3xl p-6 sm:p-8 border transition-all relative overflow-hidden flex flex-col justify-between ${
+          className={`rounded-3xl p-4 sm:p-5 border transition-all relative overflow-hidden flex flex-col justify-between ${
             timerState === 'resting'
               ? 'border-[#ea580c] ring-4 ring-[#ea580c]/30 shadow-xl shadow-[#ea580c]/10 bg-[#fff7ed] dark:bg-[#281810]'
               : 'bg-[#fffaf0]/80 dark:bg-[#1f1510]/80 border-[#fed7aa]/80 dark:border-[#7c2d12]/80'
           }`}
         >
           <div>
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <div
                   className={`p-2 rounded-xl text-white ${
@@ -973,7 +1191,6 @@ export const TimerTab: React.FC<TimerTabProps> = ({
                       不計工時
                     </span>
                   </h3>
-                  <p className="text-[11px] text-[#c2410c]/80 dark:text-[#fed7aa]/70">☕️ 休息時間：{breakMinutesTotal} 分鐘</p>
                 </div>
               </div>
 
@@ -996,11 +1213,11 @@ export const TimerTab: React.FC<TimerTabProps> = ({
             </div>
 
             {/* Big Break Digital Timer */}
-            <div className="my-4 text-center sm:text-left">
-              <div className="font-mono text-5xl sm:text-6xl font-black tracking-tight text-[#ea580c] dark:text-[#fb923c] select-none">
+            <div className="my-2.5 text-center sm:text-left">
+              <div className="font-mono text-4xl sm:text-5xl font-black tracking-tight text-[#ea580c] dark:text-[#fb923c] select-none">
                 {formatTime(currentBreakSeconds)}
               </div>
-              <div className="text-xs font-semibold text-[#9a3412] dark:text-[#fed7aa] mt-2 flex flex-wrap items-center gap-2">
+              <div className="text-xs font-semibold text-[#9a3412] dark:text-[#fed7aa] mt-1.5 flex flex-wrap items-center gap-2">
                 <span>☕️ 休息時間：約 {breakMinutesTotal} 分鐘</span>
                 <span>•</span>
                 <span>CHILL下先啦</span>
@@ -1008,158 +1225,6 @@ export const TimerTab: React.FC<TimerTabProps> = ({
             </div>
           </div>
         </div>
-      </div>
-
-      {/* ============================================================ */}
-      {/* 3. CONSOLIDATED TIMER CONTROL PANEL & WORK CONTENT */}
-      {/* ============================================================ */}
-      <div
-        className={`rounded-3xl p-6 sm:p-8 border transition-all ${
-          isWarm ? 'bg-white border-stone-200 shadow-sm' : 'bg-slate-900 border-slate-800'
-        }`}
-      >
-        {/* UNIFIED CONTROLS ACCORDING TO TIMER STATE */}
-        {timerState === 'idle' ? (
-          <div className="flex flex-col items-center justify-center space-y-3">
-            <div className="flex items-center justify-center gap-3 w-full max-w-md">
-              {/* PRIMARY BIG GREEN BUTTON: 【▶ 開始工作】 */}
-              <button
-                onClick={handleStart}
-                disabled={!hasProject}
-                className={`flex-1 py-5 px-8 rounded-3xl font-black text-lg sm:text-xl flex items-center justify-center gap-3 transition-all shadow-xl ${
-                  hasProject
-                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/35 cursor-pointer hover:scale-103 active:scale-98'
-                    : 'bg-stone-300 dark:bg-slate-800 text-stone-500 dark:text-slate-500 shadow-none cursor-not-allowed opacity-60'
-                }`}
-                title={hasProject ? '點擊立即開始工作' : '請先建立或選擇 Project 才能開始計時'}
-              >
-                {!hasProject ? <Lock size={22} /> : <Play size={22} fill="currentColor" />}
-                <span>開始工作</span>
-              </button>
-
-              {/* RESET BUTTON WHEN IDLE WITH ACCUMULATED SECONDS */}
-              {hasActiveSeconds && (
-                <button
-                  onClick={handleResetTimer}
-                  className={`py-5 px-4 rounded-3xl border font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                    isWarm
-                      ? 'border-stone-300 hover:bg-stone-100 text-stone-600'
-                      : 'border-slate-700 hover:bg-slate-800 text-slate-300'
-                  }`}
-                  title="重置當前計時器"
-                >
-                  <RotateCcw size={16} />
-                  <span>重置</span>
-                </button>
-              )}
-            </div>
-
-            {!hasProject && (
-              <p className="text-xs font-bold text-rose-600 dark:text-rose-400 text-center">
-                ⚠️ 請先建立或選擇 Project 才能開始計時
-              </p>
-            )}
-          </div>
-        ) : (
-          /* ACTIVE / RUNNING / RESTING STATE: SMOOTH SLIDE-DOWN ACCORDION FLOW */
-          <div className="space-y-6 animate-in fade-in-50 slide-in-from-top-2 duration-300">
-            {/* 1. Task Content Input Box */}
-            <div className="text-left">
-              <label className="block text-xs font-bold text-stone-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
-                <span className="flex items-center gap-1.5">
-                  <span>💼 工作內容 (Task Content)</span>
-                </span>
-                <span className="text-[10px] text-stone-400 font-normal">
-                  按下【完成並結算】時將自動寫入 Timesheet 工時紀錄
-                </span>
-              </label>
-              <input
-                type="text"
-                placeholder="例：封面插畫草稿、Client 追稿、開 meeting、排版校對..."
-                value={taskNote}
-                onChange={(e) => setTaskNote(e.target.value)}
-                className={`w-full text-xs sm:text-sm rounded-2xl px-4 py-3 border outline-none transition-all ${
-                  isWarm
-                    ? 'bg-stone-50 border-stone-300 text-stone-900 focus:bg-white focus:ring-2 focus:ring-emerald-500'
-                    : 'bg-slate-950 border-slate-700 text-slate-100 focus:ring-2 focus:ring-emerald-500'
-                }`}
-              />
-            </div>
-
-            {/* 2. Action Buttons Row */}
-            <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 text-center">
-              {timerState === 'working' ? (
-                <>
-                  {/* BREAK BUTTON */}
-                  <button
-                    onClick={handlePause}
-                    className="flex-1 min-w-[160px] max-w-xs py-4 px-6 rounded-3xl font-black text-base sm:text-lg bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-xl shadow-orange-500/25 flex items-center justify-center gap-2 transition-all cursor-pointer hover:scale-102 active:scale-98"
-                  >
-                    <Coffee size={20} />
-                    <span>休息</span>
-                  </button>
-
-                  {/* STOP / COMPLETE BUTTON */}
-                  <button
-                    onClick={handleRecord}
-                    className="flex-1 min-w-[160px] max-w-xs py-4 px-6 rounded-3xl font-black text-base sm:text-lg bg-rose-600 hover:bg-rose-700 text-white shadow-xl shadow-rose-600/25 flex items-center justify-center gap-2 transition-all cursor-pointer hover:scale-102 active:scale-98"
-                  >
-                    <CheckCircle2 size={20} />
-                    <span>完成並結算</span>
-                  </button>
-
-                  {/* SAFE RESET BUTTON */}
-                  <button
-                    onClick={handleResetTimer}
-                    className={`py-4 px-3 rounded-3xl border font-bold text-xs flex items-center justify-center gap-1 transition-all cursor-pointer ${
-                      isWarm
-                        ? 'border-stone-300 hover:bg-stone-100 text-stone-600'
-                        : 'border-slate-700 hover:bg-slate-800 text-slate-300'
-                    }`}
-                    title="重置當前計時器"
-                  >
-                    <RotateCcw size={15} />
-                    <span>重置</span>
-                  </button>
-                </>
-              ) : (
-                <>
-                  {/* RESUME BUTTON */}
-                  <button
-                    onClick={handleStart}
-                    className="flex-1 min-w-[160px] max-w-xs py-4 px-6 rounded-3xl font-black text-base sm:text-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-xl shadow-emerald-600/30 flex items-center justify-center gap-2 transition-all cursor-pointer hover:scale-102 active:scale-98"
-                  >
-                    <Play size={20} fill="currentColor" />
-                    <span>繼續工作</span>
-                  </button>
-
-                  {/* STOP / COMPLETE BUTTON */}
-                  <button
-                    onClick={handleRecord}
-                    className="flex-1 min-w-[160px] max-w-xs py-4 px-6 rounded-3xl font-black text-base sm:text-lg bg-rose-600 hover:bg-rose-700 text-white shadow-xl shadow-rose-600/25 flex items-center justify-center gap-2 transition-all cursor-pointer hover:scale-102 active:scale-98"
-                  >
-                    <CheckCircle2 size={20} />
-                    <span>完成並結算</span>
-                  </button>
-
-                  {/* SAFE RESET BUTTON */}
-                  <button
-                    onClick={handleResetTimer}
-                    className={`py-4 px-3 rounded-3xl border font-bold text-xs flex items-center justify-center gap-1 transition-all cursor-pointer ${
-                      isWarm
-                        ? 'border-stone-300 hover:bg-stone-100 text-stone-600'
-                        : 'border-slate-700 hover:bg-slate-800 text-slate-300'
-                    }`}
-                    title="重置當前計時器"
-                  >
-                    <RotateCcw size={15} />
-                    <span>重置</span>
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        )}
       </div>
 
         {/* Footer info */}

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { ChevronDown, ChevronUp, Check } from 'lucide-react';
+import { ChevronDown, ChevronUp, Check, Lock } from 'lucide-react';
 import { Project } from '../../types';
 import { useTheme } from '../../ThemeContext';
 import { getClientColor } from '../../utils/clientColors';
@@ -83,13 +83,20 @@ export const ProjectSelectDropdown: React.FC<ProjectSelectDropdownProps> = ({
         type="button"
         disabled={disabled}
         onClick={() => !disabled && setIsOpen(!isOpen)}
-        className={`w-full flex items-center justify-between gap-2.5 rounded-xl px-3.5 py-2.5 text-left border transition-all cursor-pointer select-none ${
-          isWarm
-            ? 'bg-stone-50 hover:bg-stone-100/80 border-stone-300 text-stone-900 focus:ring-2 focus:ring-stone-400'
-            : 'bg-slate-950 hover:bg-slate-900 border-slate-700 text-slate-100 focus:ring-2 focus:ring-slate-500'
-        } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+        title={
+          disabled
+            ? '計時進行中已鎖定 Project。如需查看其他 Project 資料，請切換至「Project 總覽」'
+            : undefined
+        }
+        className={`w-full flex items-center justify-between gap-2 rounded-xl px-2.5 py-1.5 sm:px-3 sm:py-2 text-left border transition-all select-none ${
+          disabled
+            ? 'opacity-60 grayscale cursor-not-allowed bg-stone-100 dark:bg-slate-900 border-stone-300 dark:border-slate-700 text-stone-700 dark:text-slate-300 shadow-none'
+            : isWarm
+            ? 'bg-stone-50 hover:bg-stone-100/80 border-stone-300 text-stone-900 focus:ring-2 focus:ring-stone-400 cursor-pointer'
+            : 'bg-slate-950 hover:bg-slate-900 border-slate-700 text-slate-100 focus:ring-2 focus:ring-slate-500 cursor-pointer'
+        }`}
       >
-        <div className="flex items-center gap-2 min-w-0 flex-1 truncate">
+        <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
           {currentProject ? (
             <>
               {/* Solid Client Color Dot */}
@@ -98,27 +105,31 @@ export const ProjectSelectDropdown: React.FC<ProjectSelectDropdownProps> = ({
                 style={{ backgroundColor: currentClientColor }}
               />
               {/* Project Name */}
-              <span className="font-bold text-xs sm:text-sm truncate">
+              <span className="font-bold text-xs sm:text-sm truncate overflow-hidden whitespace-nowrap">
                 {currentProject.name}
               </span>
             </>
           ) : (
-            <span className="text-stone-400 dark:text-slate-500 text-xs sm:text-sm">
+            <span className="text-stone-400 dark:text-slate-500 text-xs sm:text-sm truncate">
               {placeholder}
             </span>
           )}
         </div>
 
-        <ChevronDown
-          size={16}
-          className={`text-stone-400 dark:text-slate-400 transition-transform duration-200 shrink-0 ${
-            isOpen ? 'rotate-180' : ''
-          }`}
-        />
+        {disabled ? (
+          <Lock size={14} className="shrink-0 text-stone-400 dark:text-slate-500" />
+        ) : (
+          <ChevronDown
+            size={16}
+            className={`text-stone-400 dark:text-slate-400 transition-transform duration-200 shrink-0 ${
+              isOpen ? 'rotate-180' : ''
+            }`}
+          />
+        )}
       </button>
 
       {/* Custom Dropdown Menu */}
-      {isOpen && (
+      {isOpen && !disabled && (
         <div
           className={`absolute left-0 right-0 sm:min-w-[340px] max-w-[480px] mt-1.5 z-50 rounded-2xl border shadow-xl max-h-[350px] overflow-y-auto overflow-x-hidden p-1.5 transition-all animate-in fade-in zoom-in-95 duration-100 ${
             isWarm

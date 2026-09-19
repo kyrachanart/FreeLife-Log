@@ -3,6 +3,7 @@ import {
   Edit3,
   Clock,
   CheckCircle2,
+  Coffee,
   ChevronDown,
   ChevronUp,
   Copy,
@@ -34,6 +35,8 @@ interface ManualEntryTabProps {
     projectName: string;
     elapsedFormatted: string;
   };
+  viewProjectId?: string;
+  onViewProjectChange?: (projectId: string) => void;
 }
 
 export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
@@ -46,6 +49,8 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
   activeProjectId,
   setActiveProjectId,
   timerStatus,
+  viewProjectId,
+  onViewProjectChange,
 }) => {
   const { theme } = useTheme();
   const isWarm = theme === 'warm';
@@ -90,16 +95,26 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
   const [currentProfession, setCurrentProfession] = useState<string>('');
 
   // --- Form States for Manual Entry ---
-  const selectedProjectId = useMemo(() => {
+  const [selectedProjectId, setSelectedProjectId] = useState<string>(() => {
+    if (viewProjectId && projects.some((p) => p.id === viewProjectId)) {
+      return viewProjectId;
+    }
     if (activeProjectId && projects.some((p) => p.id === activeProjectId)) {
       return activeProjectId;
     }
     return projects[0]?.id || '';
-  }, [activeProjectId, projects]);
+  });
+
+  useEffect(() => {
+    if (viewProjectId && projects.some((p) => p.id === viewProjectId)) {
+      setSelectedProjectId(viewProjectId);
+    }
+  }, [viewProjectId, projects]);
 
   const handleSelectProject = (id: string) => {
-    if (setActiveProjectId) {
-      setActiveProjectId(id);
+    setSelectedProjectId(id);
+    if (onViewProjectChange) {
+      onViewProjectChange(id);
     }
   };
 
@@ -119,11 +134,12 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
   const [taskNote, setTaskNote] = useState<string>('');
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastType, setToastType] = useState<'focus' | 'break'>('focus');
 
   // Scope Creep Simulator States (Default Collapsed)
   const [isScopeCreepExpanded, setIsScopeCreepExpanded] = useState<boolean>(false);
   const [scopeCreepProjectId, setScopeCreepProjectId] = useState<string>(() => projects[0]?.id || '');
-  const [scopeCreepHours, setScopeCreepHours] = useState<number>(6);
+  const [scopeCreepHours, setScopeCreepHours] = useState<number>(1);
   const [copiedQuote, setCopiedQuote] = useState<boolean>(false);
 
   // Helper to calculate end time string given start time and minutes
@@ -163,7 +179,9 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
     ? getClientColor(currentProject.clientName, currentProject.clientColor || currentProject.color)
     : '#2563EB';
 
-  const showToast = (msg: string) => {
+  const showToast = (msg: string, forcedType?: 'focus' | 'break') => {
+    const isRest = forcedType === 'break' || (!forcedType && (msg.includes('休息') || msg.includes('☕')));
+    setToastType(isRest ? 'break' : 'focus');
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
   };
@@ -360,7 +378,17 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
 
     onSaveSession(newSession);
     setTaskNote('');
-    showToast(`⚡ 成功快捷追加 ${label} (${addedMins} 分鐘) 工時至「${currentProject.name}」！`);
+
+    // Highlight and auto-navigate to Calculator overview tab
+    try {
+      localStorage.setItem('freelife_highlight_session_id', newSession.id);
+    } catch (e) {
+      // ignore
+    }
+
+    if (onNavigateTab) {
+      onNavigateTab('calculator');
+    }
   };
 
   // Submit manual entry (Default to '專注工作' if blank)
@@ -415,15 +443,23 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
     
     // Clear note after submit
     setTaskNote('');
-    showToast(`✅ 成功補記 ${totalWorkMins} 分鐘工時至「${currentProject.name}」！`);
+
+    // Highlight and auto-navigate to Calculator overview tab
+    try {
+      localStorage.setItem('freelife_highlight_session_id', newSession.id);
+    } catch (e) {
+      // ignore
+    }
+
+    if (onNavigateTab) {
+      onNavigateTab('calculator');
+    }
   };
 
-  // Scope Creep calculations (Dynamic Effective Rate)
+  // Scope Creep calculations (Empty State Guard for usedHours < 1)
   const targetScopeProject = projects.find((p) => p.id === scopeCreepProjectId) || currentProject || projects[0];
-  const scopeContractAmount = targetScopeProject?.totalContractAmount || 0;
-  const scopeEstimatedHours = targetScopeProject?.estimatedHours && targetScopeProject.estimatedHours > 0
-    ? targetScopeProject.estimatedHours
-    : 35;
+  const totalBudget = targetScopeProject?.totalContractAmount || 0;
+  const extraHours = scopeCreepHours;
 
   // Calculate current logged minutes & hours for this target project
   const scopeProjectSessions = useMemo(() => {
@@ -431,35 +467,50 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
   }, [sessions, targetScopeProject?.id]);
 
   const scopeCurrentWorkedMinutes = scopeProjectSessions.reduce((sum, s) => sum + s.workDurationMinutes, 0);
-  const scopeCurrentWorkedHours = scopeCurrentWorkedMinutes / 60;
+  const usedHours = scopeCurrentWorkedMinutes / 60; // Exact hours e.g. 0.3h
+  const isUnderOneHour = usedHours < 1;
 
-  // Current dynamic effective hourly rate:
-  const currentEffectiveRate = scopeCurrentWorkedMinutes > 0
-    ? scopeContractAmount / scopeCurrentWorkedHours
-    : (scopeEstimatedHours > 0 ? scopeContractAmount / scopeEstimatedHours : 0);
+  // 只有當 usedHours >= 1 時，才啟動時薪計算
+  // 1. 當前時薪 (currentHourlyRate): totalBudget / usedHours
+  const currentHourlyRate = !isUnderOneHour && usedHours > 0 ? totalBudget / usedHours : 0;
 
-  const currentEffectiveRateFormatted = currentEffectiveRate > 0
-    ? `HK$ ${currentEffectiveRate.toFixed(1)} / h`
-    : 'HK$ -- / h';
+  // 2. 若免費改稿 時薪將跌至 (newHourlyRate): totalBudget / (usedHours + extraHours)
+  const newHourlyRate = !isUnderOneHour && (usedHours + extraHours) > 0 ? totalBudget / (usedHours + extraHours) : 0;
 
-  // Dilution calculation if revisions are done for free:
-  // Formula: 專案總金額 ÷ (當前總工時 + 追加工時)
-  const baseHoursForDilution = scopeCurrentWorkedMinutes > 0 ? scopeCurrentWorkedHours : scopeEstimatedHours;
-  const newTotalHours = baseHoursForDilution + scopeCreepHours;
-  const dilutedRate = newTotalHours > 0 ? Math.round(scopeContractAmount / newTotalHours) : 0;
-  const hourlyLoss = Math.max(0, Math.round(currentEffectiveRate - dilutedRate));
-  const rateDilutionPercent = currentEffectiveRate > 0
-    ? Math.max(1, Math.round(((currentEffectiveRate - dilutedRate) / currentEffectiveRate) * 100))
+  // 3. 每小時少賺 (rateDrop): currentHourlyRate - newHourlyRate
+  const rateDrop = !isUnderOneHour ? Math.max(0, currentHourlyRate - newHourlyRate) : 0;
+
+  // 4. 拉低百分比 (percentageDrop)
+  const percentageDrop = !isUnderOneHour && currentHourlyRate > 0
+    ? Math.max(0, Math.min(100, ((currentHourlyRate - newHourlyRate) / currentHourlyRate) * 100))
     : 0;
 
-  // Recommended Add-on Fee (to maintain current effective hourly rate):
-  const baseRateForAddon = currentEffectiveRate > 0 ? currentEffectiveRate : Math.round(scopeContractAmount / scopeEstimatedHours);
-  const recommendedAddOnFee = Math.round(baseRateForAddon * scopeCreepHours);
+  // 5. 建議追加報價金額 (suggestedQuote): currentHourlyRate * extraHours (四捨五入至整數)
+  const suggestedQuote = !isUnderOneHour ? Math.round(currentHourlyRate * extraHours) : 0;
+
+  const currentHourlyRateFormatted = !isUnderOneHour
+    ? `HK$ ${currentHourlyRate.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} / h`
+    : '-- / h';
+
+  const newHourlyRateFormatted = !isUnderOneHour
+    ? `HK$ ${newHourlyRate.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} / h`
+    : '-- / h';
+
+  const rateDropFormatted = !isUnderOneHour
+    ? `HK$ ${rateDrop.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}`
+    : '--';
+
+  const percentageDropFormatted = !isUnderOneHour
+    ? `${percentageDrop.toFixed(1)}%`
+    : '--%';
 
   const handleCopyScopeCreepQuote = () => {
     const clientName = targetScopeProject?.clientName || 'Client';
     const projName = targetScopeProject?.name || 'Project';
-    const text = `Hi ${clientName}，收到你關於「${projName}」嘅改稿需求！因為今次修改範圍超出咗原定合約內容，估計需要額外加多 ${scopeCreepHours} 小時處理。為維持項目進度與品質，呢部分會追加報價 HK$ ${recommendedAddOnFee.toLocaleString()}。如果冇問題我哋就安排開工，辛苦晒！`;
+    const quoteText = !isUnderOneHour && suggestedQuote > 0
+      ? `追加報價 HK$ ${suggestedQuote.toLocaleString()}`
+      : `追加報價（約 ${extraHours} 小時）`;
+    const text = `Hi ${clientName}，收到你關於「${projName}」嘅改稿需求！因為今次修改範圍超出咗原定合約內容，估計需要額外加多 ${extraHours} 小時處理。為維持項目進度與品質，呢部分會${quoteText}。如果冇問題我哋就安排開工，辛苦晒！`;
     navigator.clipboard.writeText(text);
     setCopiedQuote(true);
     showToast('💬 已複製廣東話追加報價 WhatsApp 文案！');
@@ -470,38 +521,20 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
     <div className="space-y-6 max-w-4xl mx-auto">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-24 right-6 z-50 bg-emerald-600 text-white px-4 py-2.5 rounded-2xl shadow-xl text-sm font-semibold flex items-center gap-2 border border-emerald-400">
-          <CheckCircle2 size={16} />
-          <span>{toastMessage}</span>
-        </div>
-      )}
-
-      {/* Dynamic Sticky Active Timer Banner */}
-      {timerStatus?.isRunning && (
-        <div className="rounded-2xl p-4 bg-emerald-50 dark:bg-emerald-950/40 border-2 border-emerald-500/60 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in duration-200">
-          <div className="flex items-center gap-2.5">
-            <span className="relative flex h-3 w-3 shrink-0">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-            </span>
-            <span className="text-xs sm:text-sm font-black text-emerald-950 dark:text-emerald-200">
-              ⏱️ 正在為「{timerStatus.projectName || '當前專案'}」計時中
-            </span>
-          </div>
-          {onNavigateTab && (
-            <button
-              type="button"
-              onClick={() => {
-                if (setActiveProjectId && timerStatus.projectId) {
-                  setActiveProjectId(timerStatus.projectId);
-                }
-                onNavigateTab('timer');
-              }}
-              className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black transition-all cursor-pointer shadow-xs self-end sm:self-auto shrink-0 flex items-center gap-1"
-            >
-              回到計時專案 ➔
-            </button>
+        <div
+          id="manual-entry-tab-toast"
+          className={`fixed top-24 right-6 z-50 text-white px-4 py-2.5 rounded-2xl shadow-xl text-sm font-semibold flex items-center gap-2 border transition-all duration-200 animate-in fade-in slide-in-from-top-2 ${
+            toastType === 'break'
+              ? 'bg-[#ea580c] border-orange-400 shadow-orange-950/20'
+              : 'bg-emerald-600 border-emerald-400 shadow-emerald-950/20'
+          }`}
+        >
+          {toastType === 'break' ? (
+            <Coffee size={16} className="text-white shrink-0" />
+          ) : (
+            <CheckCircle2 size={16} className="text-white shrink-0" />
           )}
+          <span>{toastMessage}</span>
         </div>
       )}
 
@@ -577,11 +610,6 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
                       <span>當前補記模式：{entryMode === 'quick' ? '一鍵快捷加時' : '詳細紀錄'}</span>
                       <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold">點擊展開</span>
                     </div>
-                    <p className="text-[11px] text-stone-400 mt-0.5">
-                      {entryMode === 'quick'
-                        ? '選擇 Project 後點擊 +15m, +30m, +1h 即刻補記工時'
-                        : '可指定精準起訖時間、休息時間與工作詳細 Memo'}
-                    </p>
                   </div>
                 </div>
                 <button
@@ -1048,18 +1076,24 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
 
             {/* Impact Metric Cards (Dynamic Effective Hourly Rate) */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {/* Card 1: 當前預算 & 即時時薪 */}
+              {/* Card 1: 當前時薪 */}
               <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 flex flex-col justify-between">
                 <div>
                   <span className="text-xs font-bold text-stone-500 dark:text-slate-400 block mb-1">
-                    當前預算 & 即時時薪
+                    當前時薪
                   </span>
                   <div className="font-mono text-xl sm:text-2xl font-black text-stone-900 dark:text-slate-100">
-                    {currentEffectiveRateFormatted}
+                    {isUnderOneHour ? '-- / h' : currentHourlyRateFormatted}
                   </div>
                 </div>
-                <div className="text-[11px] text-stone-400 mt-2 font-medium">
-                  已用工時：{scopeCurrentWorkedHours.toFixed(1)}h / 預估上限 {scopeEstimatedHours}h
+                <div className="text-[11px] text-stone-500 dark:text-slate-400 mt-2 font-medium">
+                  {isUnderOneHour ? (
+                    <span className="text-amber-600 dark:text-amber-400 font-semibold">
+                      ⚠️ 已用工時不足 1 小時，暫無法統計
+                    </span>
+                  ) : (
+                    <span>目前已用工時：{usedHours.toFixed(1)}h / 總預算 HK$ {totalBudget.toLocaleString()}</span>
+                  )}
                 </div>
               </div>
 
@@ -1067,14 +1101,20 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
               <div className="p-4 rounded-2xl bg-rose-50/70 dark:bg-rose-950/25 border border-rose-200 dark:border-rose-900 flex flex-col justify-between">
                 <div>
                   <span className="text-xs font-bold text-rose-800 dark:text-rose-300 block mb-1">
-                    若免費改稿 時薪將跌至
+                    若免費改稿
                   </span>
                   <div className="font-mono text-xl sm:text-2xl font-black text-rose-600 dark:text-rose-400">
-                    HK$ {dilutedRate} / h
+                    {isUnderOneHour ? '-- / h' : newHourlyRateFormatted}
                   </div>
                 </div>
                 <div className="text-[11px] text-rose-600 dark:text-rose-400 font-bold mt-2">
-                  ⚠️ 時薪比原本拉低了 {rateDilutionPercent}% (每小時少賺 HK$ {hourlyLoss})
+                  {isUnderOneHour ? (
+                    <span className="text-stone-500 dark:text-slate-400 font-normal">
+                      累積工時達 1 小時後自動計算
+                    </span>
+                  ) : (
+                    <span>⚠️ 時薪比原本拉低了 {percentageDropFormatted}（每小時少賺 {rateDropFormatted}）</span>
+                  )}
                 </div>
               </div>
 
@@ -1082,14 +1122,20 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
               <div className="p-4 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/25 border border-emerald-200 dark:border-emerald-900 flex flex-col justify-between">
                 <div>
                   <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300 block mb-1">
-                    建議追加報價金額
+                    建議追加報價
                   </span>
                   <div className="font-mono text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400">
-                    HK$ {recommendedAddOnFee.toLocaleString()}
+                    {isUnderOneHour ? '--' : `HK$ ${suggestedQuote.toLocaleString()}`}
                   </div>
                 </div>
                 <div className="text-[11px] text-emerald-700 dark:text-emerald-300 font-bold mt-2">
-                  💡 建議補收 HK$ {recommendedAddOnFee.toLocaleString()} 以維持目前 HK$ {Math.round(baseRateForAddon)}/h 的時薪水準
+                  {isUnderOneHour ? (
+                    <span className="text-stone-500 dark:text-slate-400 font-normal">
+                      請直接按基本時薪自行估價
+                    </span>
+                  ) : (
+                    <span>💡 建議追加報價 HK$ {suggestedQuote.toLocaleString()} 以維持目前 HK$ {Math.round(currentHourlyRate)}/h 的時薪水準</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -1098,11 +1144,24 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
             <div className="pt-2 flex justify-end">
               <button
                 type="button"
+                disabled={isUnderOneHour}
                 onClick={handleCopyScopeCreepQuote}
-                className="px-5 py-3 rounded-2xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white text-xs font-black flex items-center gap-2 transition-all cursor-pointer shadow-lg shadow-amber-600/25 hover:scale-102 active:scale-98"
+                className={`px-5 py-3 rounded-2xl text-xs font-black flex items-center gap-2 transition-all ${
+                  isUnderOneHour
+                    ? 'bg-[#E5E7EB] dark:bg-slate-800 text-[#9CA3AF] dark:text-slate-500 cursor-not-allowed pointer-events-none shadow-none'
+                    : 'bg-[#ea580c] hover:bg-[#c2410c] text-white cursor-pointer shadow-lg shadow-orange-600/25 hover:scale-102 active:scale-98'
+                }`}
               >
-                {copiedQuote ? <Check size={16} /> : <Copy size={16} />}
-                <span>{copiedQuote ? '已複製廣東話報價文案' : '複製追加報價 WhatsApp 文案'}</span>
+                {copiedQuote ? (
+                  <Check size={16} />
+                ) : (
+                  <Copy size={16} className={isUnderOneHour ? 'text-[#9CA3AF] dark:text-slate-500' : 'text-white'} />
+                )}
+                <span>
+                  {isUnderOneHour
+                    ? '複製追加報價 WhatsApp 文案 (工時不足 1h)'
+                    : (copiedQuote ? '已複製廣東話報價文案' : '複製追加報價 WhatsApp 文案')}
+                </span>
               </button>
             </div>
           </div>

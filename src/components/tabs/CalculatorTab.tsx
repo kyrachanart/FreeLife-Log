@@ -13,6 +13,7 @@ import {
   AlertTriangle,
   FolderMinus,
   CheckCircle2,
+  Coffee,
   FileText,
   Download,
   Play,
@@ -25,6 +26,7 @@ import {
 } from 'lucide-react';
 import { Project, TimeSession, ProjectMemoItem, FreelancerProfile } from '../../types';
 import { useTheme } from '../../ThemeContext';
+import { exportTimesheetPDF } from '../../utils/pdfExport';
 import { EditProjectModal } from '../modals/EditProjectModal';
 import { ConfirmDeleteModal } from '../modals/ConfirmDeleteModal';
 import { ConfirmDeleteProjectModal } from '../modals/ConfirmDeleteProjectModal';
@@ -56,6 +58,8 @@ interface CalculatorTabProps {
     elapsedFormatted: string;
   };
   onRequestSwitchProject?: (targetProjectId: string) => void;
+  viewProjectId?: string;
+  onViewProjectChange?: (projectId: string) => void;
 }
 
 export const CalculatorTab: React.FC<CalculatorTabProps> = ({
@@ -76,9 +80,33 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
   onToggleShowHourlyRate,
   timerStatus,
   onRequestSwitchProject,
+  viewProjectId: externalViewProjectId,
+  onViewProjectChange,
 }) => {
   const { theme } = useTheme();
   const isWarm = theme === 'warm';
+
+  // Auto scroll into view & highlight newly created session if redirected from manual entry
+  useEffect(() => {
+    try {
+      const highlightId = localStorage.getItem('freelife_highlight_session_id');
+      if (highlightId) {
+        localStorage.removeItem('freelife_highlight_session_id');
+        setTimeout(() => {
+          const el = document.getElementById(`session-${highlightId}`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add('ring-2', 'ring-emerald-500', 'bg-emerald-50/80', 'dark:bg-emerald-950/60');
+            setTimeout(() => {
+              el.classList.remove('ring-2', 'ring-emerald-500', 'bg-emerald-50/80', 'dark:bg-emerald-950/60');
+            }, 3500);
+          }
+        }, 300);
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, [sessions]);
 
   // Extract unique existing clients list
   const existingClients = useMemo(() => {
@@ -94,6 +122,9 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
 
   // Local independent viewing state
   const [viewProjectId, setViewProjectId] = useState<string>(() => {
+    if (externalViewProjectId && projects.some((p) => p.id === externalViewProjectId)) {
+      return externalViewProjectId;
+    }
     if (activeProjectId && projects.some((p) => p.id === activeProjectId)) {
       return activeProjectId;
     }
@@ -111,17 +142,17 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
     }
   }, [projects, viewProjectId]);
 
-  // Synchronize viewProjectId when global activeProjectId changes externally
+  // Synchronize when externalViewProjectId changes
   useEffect(() => {
-    if (activeProjectId && projects.some((p) => p.id === activeProjectId)) {
-      setViewProjectId(activeProjectId);
+    if (externalViewProjectId && projects.some((p) => p.id === externalViewProjectId)) {
+      setViewProjectId(externalViewProjectId);
     }
-  }, [activeProjectId, projects]);
+  }, [externalViewProjectId, projects]);
 
   const handleViewProjectChange = (targetId: string) => {
     setViewProjectId(targetId);
-    if (setActiveProjectId) {
-      setActiveProjectId(targetId);
+    if (onViewProjectChange) {
+      onViewProjectChange(targetId);
     }
   };
 
@@ -129,7 +160,9 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
   const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(false);
   const [isMetricsExpanded, setIsMetricsExpanded] = useState(true);
   const [copiedFullTimesheet, setCopiedFullTimesheet] = useState(false);
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastType, setToastType] = useState<'focus' | 'break'>('focus');
 
   // Single Session Deletion Modal States
   const [sessionToDelete, setSessionToDelete] = useState<TimeSession | null>(null);
@@ -262,7 +295,9 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
     showToast('✏️ 已成功更新備忘筆記！');
   };
 
-  const showToast = (msg: string) => {
+  const showToast = (msg: string, forcedType?: 'focus' | 'break') => {
+    const isRest = forcedType === 'break' || (!forcedType && (msg.includes('休息') || msg.includes('☕')));
+    setToastType(isRest ? 'break' : 'focus');
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
   };
@@ -368,8 +403,8 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
     setTimeout(() => setCopiedFullTimesheet(false), 2500);
   };
 
-  // Export Timesheet PNG Image
-  const handleExportTimesheetImage = () => {
+  // Export Timesheet PDF Report
+  const handleExportTimesheetPDF = async () => {
     if (!currentProject) return;
 
     if (projectSessions.length === 0) {
@@ -377,82 +412,20 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
       return;
     }
 
-    const canvas = document.createElement('canvas');
-    canvas.width = 800;
-    canvas.height = 1000;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Background
-    ctx.fillStyle = '#0f172a'; // Slate 900
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Header card
-    ctx.fillStyle = '#1e293b'; // Slate 800
-    ctx.fillRect(40, 40, canvas.width - 80, 170);
-
-    // Title
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 22px sans-serif';
-    ctx.fillText('FreeLife Log — Timesheet Report', 70, 85);
-
-    // Author & Project Info
-    const authorName = freelancerProfile?.name || '未設定姓名';
-    const authorRole = freelancerProfile?.title || '未設定職業';
-    ctx.font = 'bold 15px sans-serif';
-    ctx.fillStyle = '#34d399'; // Emerald 400
-    ctx.fillText(`製表人：${authorName} (${authorRole})`, 70, 120);
-
-    ctx.fillStyle = '#cbd5e1'; // Slate 300
-    ctx.font = '14px sans-serif';
-    ctx.fillText(`專案名稱：${currentProject.name}   |   客戶：${currentProject.clientName || '未指定'}`, 70, 150);
-    ctx.fillText(`累計總淨工時：${totalWorkedHours.toFixed(1)} 小時 (${totalWorkedMinutes} 分鐘)`, 70, 178);
-
-    // Sessions table header
-    let y = 240;
-    ctx.fillStyle = '#334155';
-    ctx.fillRect(40, y, canvas.width - 80, 40);
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 13px sans-serif';
-    ctx.fillText('日期', 60, y + 25);
-    ctx.fillText('時間區段', 160, y + 25);
-    ctx.fillText('工作任務內容描述', 280, y + 25);
-    ctx.fillText('淨工時', 690, y + 25);
-
-    y += 50;
-    ctx.font = '13px sans-serif';
-    projectSessions.slice(0, 12).forEach((s, idx) => {
-      if (y > 880) return;
-      ctx.fillStyle = idx % 2 === 0 ? '#1e293b' : '#0f172a';
-      ctx.fillRect(40, y - 5, canvas.width - 80, 36);
-
-      ctx.fillStyle = '#e2e8f0';
-      ctx.fillText(s.date, 60, y + 17);
-      const timeRange = s.startTime && s.startTime !== '--:--' ? `${s.startTime}-${s.endTime}` : '手動工時';
-      ctx.fillText(timeRange, 160, y + 17);
-
-      const desc = s.taskDescription.length > 28 ? s.taskDescription.substring(0, 28) + '...' : s.taskDescription;
-      ctx.fillText(desc, 280, y + 17);
-      const sH = Math.floor(s.workDurationMinutes / 60);
-      const sM = s.workDurationMinutes % 60;
-      const sDur = sH > 0 ? (sM > 0 ? `${sH}h ${sM}m` : `${sH}h`) : `${sM}m`;
-      ctx.fillText(sDur, 690, y + 17);
-
-      y += 38;
-    });
-
-    // Footer
-    ctx.fillStyle = '#64748b';
-    ctx.font = '11px sans-serif';
-    ctx.fillText(`Generated by FreeLife Log • Professional Timesheet Export • ${new Date().toLocaleDateString()}`, 40, 955);
-
-    // Trigger download
-    const link = document.createElement('a');
-    link.download = `${currentProject.name.replace(/\s+/g, '_')}_Timesheet.png`;
-    link.href = canvas.toDataURL('image/png');
-    link.click();
-
-    showToast('🖼️ 已成功導出 Timesheet PNG 圖片！');
+    try {
+      setIsExportingPDF(true);
+      await exportTimesheetPDF({
+        project: currentProject,
+        sessions: projectSessions,
+        profile: freelancerProfile,
+      });
+      showToast('📄 已成功匯出 Timesheet PDF 報表！');
+    } catch (err) {
+      console.error('Failed to export PDF:', err);
+      showToast('❌ 匯出 PDF 報表失敗，請稍後再試');
+    } finally {
+      setIsExportingPDF(false);
+    }
   };
 
   // Confirm project deletion
@@ -506,36 +479,20 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
     <div className="space-y-6 max-w-5xl mx-auto">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-24 right-6 z-50 bg-emerald-600 text-white px-4 py-2.5 rounded-2xl shadow-xl text-sm font-semibold flex items-center gap-2 border border-emerald-400">
-          <CheckCircle2 size={16} />
-          <span>{toastMessage}</span>
-        </div>
-      )}
-
-      {/* Simplified Persistent Timer Running Banner */}
-      {timerStatus?.isRunning && (
-        <div className="rounded-2xl p-4 bg-emerald-50 dark:bg-emerald-950/40 border-2 border-emerald-500/60 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in duration-200">
-          <div className="flex items-center gap-2.5">
-            <span className="relative flex h-3 w-3 shrink-0">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-            </span>
-            <span className="text-xs sm:text-sm font-black text-emerald-950 dark:text-emerald-200">
-              ⏱️ 正在為「{timerStatus.projectName || '當前專案'}」計時中
-            </span>
-          </div>
-          {onNavigateTab && (
-            <button
-              type="button"
-              onClick={() => {
-                setViewProjectId(timerStatus.projectId);
-                onNavigateTab('timer');
-              }}
-              className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black transition-all cursor-pointer shadow-xs self-end sm:self-auto shrink-0 flex items-center gap-1"
-            >
-              回到計時專案 ➔
-            </button>
+        <div
+          id="calculator-tab-toast"
+          className={`fixed top-24 right-6 z-50 text-white px-4 py-2.5 rounded-2xl shadow-xl text-sm font-semibold flex items-center gap-2 border transition-all duration-200 animate-in fade-in slide-in-from-top-2 ${
+            toastType === 'break'
+              ? 'bg-[#ea580c] border-orange-400 shadow-orange-950/20'
+              : 'bg-emerald-600 border-emerald-400 shadow-emerald-950/20'
+          }`}
+        >
+          {toastType === 'break' ? (
+            <Coffee size={16} className="text-white shrink-0" />
+          ) : (
+            <CheckCircle2 size={16} className="text-white shrink-0" />
           )}
+          <span>{toastMessage}</span>
         </div>
       )}
 
@@ -869,18 +826,19 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
               <span>{copiedFullTimesheet ? '已複製完整 Timesheet' : '複製文字摘要'}</span>
             </button>
 
-            {/* Export Timesheet PNG Image Button */}
+            {/* Export Timesheet PDF Report Button */}
             <button
-              onClick={handleExportTimesheetImage}
+              onClick={handleExportTimesheetPDF}
+              disabled={isExportingPDF}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold border flex items-center gap-1.5 transition-all cursor-pointer ${
                 isWarm
                   ? 'border-emerald-300 bg-emerald-50/70 hover:bg-emerald-100 text-emerald-800'
                   : 'border-emerald-900/80 bg-emerald-950/50 hover:bg-emerald-900/60 text-emerald-300'
               }`}
-              title="匯出清晰呈現製表人與工時明細的 PNG 圖片"
+              title="匯出呈現製表人、專案資訊與完整工時明細的 PDF 報表"
             >
-              <Download size={13} />
-              <span>匯出圖片 (PNG)</span>
+              <FileText size={13} className={isExportingPDF ? 'animate-pulse text-emerald-600' : ''} />
+              <span>{isExportingPDF ? '正在匯出 PDF...' : '匯出 PDF 報表'}</span>
             </button>
           </div>
         </div>
@@ -935,7 +893,8 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
               return (
                 <div
                   key={session.id}
-                  className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-stone-50/50 dark:hover:bg-slate-800/30 px-3 rounded-2xl transition-colors"
+                  id={`session-${session.id}`}
+                  className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-stone-50/50 dark:hover:bg-slate-800/30 px-3 rounded-2xl transition-all duration-300"
                 >
                   <div className="space-y-1 flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">

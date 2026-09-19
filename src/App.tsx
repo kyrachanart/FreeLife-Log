@@ -269,6 +269,7 @@ function AppContent() {
       if (
         prev &&
         prev.isRunning === bridge.isRunning &&
+        prev.timerState === bridge.timerState &&
         prev.projectId === bridge.projectId &&
         prev.projectName === bridge.projectName &&
         prev.elapsedFormatted === bridge.elapsedFormatted
@@ -366,6 +367,56 @@ function AppContent() {
     showToast('✨ 所有工時、Project、歷史紀錄與計時器已完全重置清空！');
   };
 
+  // Active Timer Global Banner state & logic
+  const isTimerActive = Boolean(
+    timerBridge?.isRunning &&
+    (timerBridge.timerState === 'working' || timerBridge.timerState === 'resting') &&
+    timerBridge.projectId
+  );
+
+  const activeTimerProjectId = timerBridge?.projectId || '';
+  const activeTimerProject = projects.find((p) => p.id === activeTimerProjectId);
+  const activeTimerProjectName =
+    timerBridge?.projectName || activeTimerProject?.name || '當前專案';
+  const isResting = timerBridge?.timerState === 'resting';
+
+  // Independent project view selection for Page 2 (Overview) and Page 3 (Manual Entry)
+  const [overviewProjectId, setOverviewProjectId] = useState<string>(() => {
+    return activeProjectId || projects[0]?.id || '';
+  });
+
+  const [manualEntryProjectId, setManualEntryProjectId] = useState<string>(() => {
+    return activeProjectId || projects[0]?.id || '';
+  });
+
+  // Keep overviewProjectId and manualEntryProjectId valid if projects change
+  useEffect(() => {
+    if (projects.length > 0) {
+      if (!overviewProjectId || !projects.some((p) => p.id === overviewProjectId)) {
+        setOverviewProjectId(projects[0].id);
+      }
+      if (!manualEntryProjectId || !projects.some((p) => p.id === manualEntryProjectId)) {
+        setManualEntryProjectId(projects[0].id);
+      }
+    }
+  }, [projects, overviewProjectId, manualEntryProjectId]);
+
+  // Page 1 (timer) strictly hides banner
+  // Page 2 & 3 only show banner when viewing a project different from the active timer
+  const isViewingDifferentProjectInOtherPage =
+    (activeTab === 'calculator' && overviewProjectId !== activeTimerProjectId) ||
+    (activeTab === 'manual-entry' && manualEntryProjectId !== activeTimerProjectId);
+
+  const showGlobalActiveBanner =
+    isTimerActive && activeTab !== 'timer' && isViewingDifferentProjectInOtherPage;
+
+  const handleReturnToActiveTimerProject = () => {
+    if (activeTimerProjectId) {
+      setActiveProjectId(activeTimerProjectId);
+    }
+    setActiveTab('timer');
+  };
+
   // 3-Tab Navigation Definition (Monochrome vector icons)
   const navTabs = [
     { id: 'timer', label: '工作計時 (Timer)', icon: Clock },
@@ -381,8 +432,19 @@ function AppContent() {
     >
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-24 right-6 z-50 bg-emerald-600 text-white px-4 py-2.5 rounded-2xl shadow-xl text-sm font-semibold flex items-center gap-2 border border-emerald-400">
-          <CheckCircle2 size={16} />
+        <div
+          id="app-global-toast"
+          className={`fixed top-24 right-6 z-50 text-white px-4 py-2.5 rounded-2xl shadow-xl text-sm font-semibold flex items-center gap-2 border transition-all duration-200 animate-in fade-in slide-in-from-top-2 ${
+            isResting || toastMessage.includes('休息') || toastMessage.includes('☕')
+              ? 'bg-[#ea580c] border-orange-400 shadow-orange-950/20'
+              : 'bg-emerald-600 border-emerald-400 shadow-emerald-950/20'
+          }`}
+        >
+          {isResting || toastMessage.includes('休息') || toastMessage.includes('☕') ? (
+            <Coffee size={16} className="text-white shrink-0" />
+          ) : (
+            <CheckCircle2 size={16} className="text-white shrink-0" />
+          )}
           <span>{toastMessage}</span>
         </div>
       )}
@@ -411,7 +473,7 @@ function AppContent() {
                 <h1 className="font-extrabold text-base sm:text-lg tracking-tight">FreeLife Log</h1>
               </div>
               <p className="text-[10px] text-stone-500 dark:text-slate-400">
-                紀錄Freelancer的生活，拒絕OT
+                紀錄Freelancer的生活
               </p>
             </div>
           </div>
@@ -421,7 +483,7 @@ function AppContent() {
             {/* User Profile / Creator Badge */}
             <button
               onClick={() => setIsProfileModalOpen(true)}
-              className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              className={`h-9 px-3 rounded-xl border text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
                 isWarm
                   ? 'border-stone-300 bg-stone-100/80 hover:bg-stone-200 text-stone-800'
                   : 'border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-200'
@@ -442,7 +504,7 @@ function AppContent() {
             {/* Prominent New Project Button (With Timer Interception Safeguard) */}
             <button
               onClick={handleTriggerNewProject}
-              className="px-4 py-2 rounded-xl text-xs sm:text-sm font-black bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center transition-all shadow-md shadow-emerald-600/20 cursor-pointer hover:scale-102"
+              className="h-9 px-4 rounded-xl text-xs sm:text-sm font-black bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center transition-all shadow-md shadow-emerald-600/20 cursor-pointer hover:scale-102"
               title="創建新的 Project"
             >
               <span>＋ 新增 Project</span>
@@ -466,7 +528,64 @@ function AppContent() {
       </header>
 
       {/* Main Tab Viewport (Preserved in DOM to prevent losing background timer state) */}
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 pb-28">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 pb-28 space-y-6">
+        {/* Global Active Banner between Header and Project Selector Card */}
+        {showGlobalActiveBanner && (
+          <div
+            id="global-active-timer-banner"
+            className={`rounded-2xl p-4 border-2 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in duration-200 ${
+              isResting
+                ? 'bg-[#fff7ed] dark:bg-[#281810] border-[#ea580c]'
+                : 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500/60'
+            }`}
+          >
+            <div className="flex items-center gap-2.5 min-w-0 flex-1 overflow-hidden">
+              <span className="relative flex h-3 w-3 shrink-0">
+                <span
+                  className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                    isResting ? 'bg-orange-400' : 'bg-emerald-400'
+                  }`}
+                />
+                <span
+                  className={`relative inline-flex rounded-full h-3 w-3 ${
+                    isResting ? 'bg-[#ea580c]' : 'bg-emerald-500'
+                  }`}
+                />
+              </span>
+              <span
+                className={`text-xs sm:text-sm font-black truncate ${
+                  isResting
+                    ? 'text-[#9a3412] dark:text-[#fdba74]'
+                    : 'text-emerald-950 dark:text-emerald-200'
+                }`}
+                title={
+                  isResting
+                    ? `☕ 「${activeTimerProjectName}」休息中... CHILL 下先啦`
+                    : `⏱️ 正在為「${activeTimerProjectName}」計時中`
+                }
+              >
+                {isResting
+                  ? `☕ 「${activeTimerProjectName}」休息中... CHILL 下先啦`
+                  : `⏱️ 正在為「${activeTimerProjectName}」計時中`}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              id="btn-return-to-active-timer"
+              onClick={handleReturnToActiveTimerProject}
+              className={`px-3.5 py-1.5 rounded-xl font-black text-xs text-white transition-all cursor-pointer shadow-xs self-end sm:self-auto shrink-0 flex items-center gap-1 hover:scale-102 active:scale-98 ${
+                isResting
+                  ? 'bg-[#ea580c] hover:bg-[#c2410c]'
+                  : 'bg-emerald-600 hover:bg-emerald-700'
+              }`}
+              title="回到計時專案"
+            >
+              <span>回到計時專案 ➔</span>
+            </button>
+          </div>
+        )}
+
         {/* Tab 1: 核心計時 (Timer) */}
         <div className={activeTab === 'timer' ? 'block' : 'hidden'}>
           <TimerTab
@@ -500,7 +619,8 @@ function AppContent() {
             onOpenNewProjectModal={handleTriggerNewProject}
             freelancerProfile={freelancerProfile}
             activeProjectId={activeProjectId}
-            setActiveProjectId={setActiveProjectId}
+            viewProjectId={overviewProjectId}
+            onViewProjectChange={setOverviewProjectId}
             hourlyRateVisibilityMap={hourlyRateVisibilityMap}
             onToggleShowHourlyRate={handleToggleShowHourlyRate}
             timerStatus={
@@ -527,7 +647,8 @@ function AppContent() {
             onOpenNewProjectModal={handleTriggerNewProject}
             onUpdateProject={handleUpdateProject}
             activeProjectId={activeProjectId}
-            setActiveProjectId={setActiveProjectId}
+            viewProjectId={manualEntryProjectId}
+            onViewProjectChange={setManualEntryProjectId}
             timerStatus={
               timerBridge
                 ? {
@@ -578,7 +699,7 @@ function AppContent() {
       />
 
       {/* Creator Footer */}
-      <footer className={`py-6 mt-12 text-center text-xs border-t transition-colors ${
+      <footer className={`py-6 pb-28 mt-6 text-center text-xs border-t transition-colors ${
         isWarm ? 'border-stone-200/60 text-stone-400' : 'border-slate-800/60 text-slate-500'
       }`}>
         <p className="tracking-wide font-normal">
