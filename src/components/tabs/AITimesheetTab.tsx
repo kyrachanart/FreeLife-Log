@@ -541,14 +541,15 @@ export const AITimesheetTab: React.FC<AITimesheetTabProps> = ({
                   <select
                     value={scopeCreepProjectId}
                     onChange={(e) => setScopeCreepProjectId(e.target.value)}
-                    className={`text-xs font-bold rounded-xl px-3 py-1.5 border outline-none cursor-pointer ${
+                    style={{ textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden', maxWidth: '100%' }}
+                    className={`text-xs font-bold rounded-xl px-3 py-1.5 border outline-none cursor-pointer max-w-[220px] sm:max-w-xs truncate ${
                       isWarm
                         ? 'bg-stone-50 border-stone-300 text-stone-800'
                         : 'bg-slate-950 border-slate-700 text-slate-200'
                     }`}
                   >
                     {projects.map((p) => (
-                      <option key={p.id} value={p.id}>
+                      <option key={p.id} value={p.id} className="truncate">
                         {p.name} ({p.clientName}) - 目標 ${p.targetHourlyRate}/h
                       </option>
                     ))}

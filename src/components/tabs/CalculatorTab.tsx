@@ -23,6 +23,7 @@ import {
   Settings,
   ChevronDown,
   ChevronUp,
+  X,
 } from 'lucide-react';
 import { Project, TimeSession, ProjectMemoItem, FreelancerProfile } from '../../types';
 import { useTheme } from '../../ThemeContext';
@@ -39,6 +40,7 @@ interface CalculatorTabProps {
   projects: Project[];
   sessions: TimeSession[];
   onDeleteSession: (sessionId: string) => void;
+  onUpdateSession?: (updatedSession: TimeSession) => void;
   onDeleteProject?: (projectId: string) => void;
   onDeleteProjects?: (projectIds: string[]) => void;
   onMoveProjects?: (projectIds: string[], targetClientName: string) => void;
@@ -66,6 +68,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
   projects,
   sessions,
   onDeleteSession,
+  onUpdateSession,
   onDeleteProject,
   onDeleteProjects,
   onMoveProjects,
@@ -158,11 +161,16 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(false);
-  const [isMetricsExpanded, setIsMetricsExpanded] = useState(true);
+  const [isMetricsExpanded, setIsMetricsExpanded] = useState(false);
   const [copiedFullTimesheet, setCopiedFullTimesheet] = useState(false);
   const [isExportingPDF, setIsExportingPDF] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastType, setToastType] = useState<'focus' | 'break'>('focus');
+
+  // Automatically reset metrics to collapsed when viewed project changes
+  useEffect(() => {
+    setIsMetricsExpanded(false);
+  }, [viewProjectId]);
 
   // Single Session Deletion Modal States
   const [sessionToDelete, setSessionToDelete] = useState<TimeSession | null>(null);
@@ -193,6 +201,33 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
   const [copiedMemoId, setCopiedMemoId] = useState<string | null>(null);
   const [editingMemoId, setEditingMemoId] = useState<string | null>(null);
   const [editingMemoContent, setEditingMemoContent] = useState<string>('');
+
+  // Timesheet Entry Title Editing State
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+  const [editingSessionTitle, setEditingSessionTitle] = useState<string>('');
+
+  const handleStartEditSession = (session: TimeSession) => {
+    setEditingSessionId(session.id);
+    setEditingSessionTitle(session.taskDescription || '');
+  };
+
+  const handleSaveEditSession = (session: TimeSession) => {
+    const newTitle = editingSessionTitle.trim() || '專注工作';
+    if (onUpdateSession) {
+      onUpdateSession({
+        ...session,
+        taskDescription: newTitle,
+      });
+    }
+    setEditingSessionId(null);
+    setEditingSessionTitle('');
+    showToast('✅ 已更新工作內容！');
+  };
+
+  const handleCancelEditSession = () => {
+    setEditingSessionId(null);
+    setEditingSessionTitle('');
+  };
 
   // Compute current project's memos list with backward compatibility
   const currentMemos = useMemo<ProjectMemoItem[]>(() => {
@@ -596,7 +631,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                     : 'border-emerald-800 hover:bg-emerald-950/60 text-emerald-300 bg-emerald-950/40'
                 }`}
               >
-                <span>{isMetricsExpanded ? '收摺數據' : '查看數據'}</span>
+                <span>{isMetricsExpanded ? '收摺數據' : '展開數據'}</span>
                 {isMetricsExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
               </button>
             </div>
@@ -798,6 +833,10 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
         className={`rounded-3xl p-6 sm:p-8 border transition-all ${
           isWarm ? 'bg-white border-stone-200 shadow-sm' : 'bg-slate-900 border-slate-800'
         }`}
+        style={{
+          borderLeftWidth: '4px',
+          borderLeftColor: clientColor,
+        }}
       >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-stone-100 dark:border-slate-800 gap-3">
           <div>
@@ -890,13 +929,15 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
               const bM = (session.breakDurationMinutes || 0) % 60;
               const formattedBreak = bH > 0 ? (bM > 0 ? `${bH}h ${bM}m` : `${bH}h`) : `${bM}m`;
 
+              const isEditingThis = editingSessionId === session.id;
+
               return (
                 <div
                   key={session.id}
                   id={`session-${session.id}`}
                   className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-stone-50/50 dark:hover:bg-slate-800/30 px-3 rounded-2xl transition-all duration-300"
                 >
-                  <div className="space-y-1 flex-1 min-w-0">
+                  <div className="space-y-1.5 flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-mono font-bold text-stone-600 dark:text-slate-300">
                         {session.date}
@@ -916,24 +957,91 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                         </span>
                       )}
                     </div>
-                    <p className="text-xs sm:text-sm font-semibold text-stone-800 dark:text-slate-200 break-words">
-                      {session.taskDescription}
-                    </p>
+
+                    {isEditingThis ? (
+                      <div className="flex items-center gap-2 pt-0.5">
+                        <input
+                          type="text"
+                          autoFocus
+                          value={editingSessionTitle}
+                          onChange={(e) => setEditingSessionTitle(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleSaveEditSession(session);
+                            } else if (e.key === 'Escape') {
+                              e.preventDefault();
+                              handleCancelEditSession();
+                            }
+                          }}
+                          placeholder="請輸入修改後的工作內容..."
+                          className={`w-full text-xs sm:text-sm font-semibold rounded-xl px-3 py-1.5 border outline-none transition-all ${
+                            isWarm
+                              ? 'bg-white border-emerald-500 text-stone-900 shadow-2xs focus:ring-2 focus:ring-emerald-500/20'
+                              : 'bg-slate-950 border-emerald-500 text-slate-100 shadow-2xs focus:ring-2 focus:ring-emerald-500/20'
+                          }`}
+                        />
+                      </div>
+                    ) : (
+                      <p
+                        onClick={() => handleStartEditSession(session)}
+                        className="text-xs sm:text-sm font-semibold text-stone-800 dark:text-slate-200 break-words cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                        title="點擊以修改工作內容"
+                      >
+                        {session.taskDescription}
+                      </p>
+                    )}
                   </div>
 
-                  {/* Right side: Bold Net Duration Badge + Delete Button */}
-                  <div className="flex items-center gap-3 self-end sm:self-center shrink-0">
-                    <span className="text-xs sm:text-sm font-mono font-black px-3.5 py-1.5 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                      {formattedDuration}
-                    </span>
-                    <button
-                      onClick={() => setSessionToDelete(session)}
-                      className="p-1.5 rounded-lg text-stone-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
-                      title="刪除此筆工時紀錄"
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
+                  {/* Right side: Actions / Status */}
+                  {isEditingThis ? (
+                    <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleSaveEditSession(session)}
+                        className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-all shadow-xs flex items-center gap-1 cursor-pointer"
+                        title="儲存修改 (Enter)"
+                      >
+                        <Check size={14} />
+                        <span>儲存</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCancelEditSession}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center gap-1 ${
+                          isWarm
+                            ? 'bg-stone-100 hover:bg-stone-200 border-stone-300 text-stone-700'
+                            : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300'
+                        }`}
+                        title="取消修改 (Esc)"
+                      >
+                        <X size={14} />
+                        <span>取消</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 sm:gap-3 self-end sm:self-center shrink-0">
+                      <span className="text-xs sm:text-sm font-mono font-black px-3.5 py-1.5 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                        {formattedDuration}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleStartEditSession(session)}
+                        className="p-1.5 rounded-lg text-stone-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors cursor-pointer"
+                        title="修改工作內容"
+                      >
+                        <Edit2 size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSessionToDelete(session)}
+                        className="p-1.5 rounded-lg text-stone-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                        title="刪除此筆工時紀錄"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -949,6 +1057,10 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
           className={`rounded-3xl p-6 sm:p-7 border transition-all space-y-6 ${
             isWarm ? 'bg-white border-stone-200 shadow-sm' : 'bg-slate-900 border-slate-800'
           }`}
+          style={{
+            borderLeftWidth: '4px',
+            borderLeftColor: clientColor,
+          }}
         >
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-stone-100 dark:border-slate-800 gap-3">
@@ -958,7 +1070,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
               </div>
               <div>
                 <h3 className="font-black text-base sm:text-lg text-stone-900 dark:text-slate-100 flex items-center gap-2">
-                  <span>Project Memo / 工作筆記</span>
+                  <span>工作筆記</span>
                   <span className="text-xs px-2 py-0.5 rounded-full font-mono font-bold bg-stone-100 dark:bg-slate-800 text-stone-600 dark:text-slate-400">
                     {currentMemos.length} 則紀錄
                   </span>
@@ -982,9 +1094,6 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
 
           {/* New Memo Input Box */}
           <div className="space-y-2">
-            <label className="block text-xs font-bold text-stone-700 dark:text-slate-300">
-              ✍️ 新增備忘筆記
-            </label>
             <textarea
               rows={3}
               placeholder={`例：
@@ -994,7 +1103,11 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
               value={projectMemoInput}
               onChange={(e) => setProjectMemoInput(e.target.value)}
               onKeyDown={(e) => {
-                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSaveMemo();
+                } else if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                  e.preventDefault();
                   handleSaveMemo();
                 }
               }}
@@ -1006,7 +1119,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
             />
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between text-[11px] text-stone-400 gap-1 px-1">
               <span>
-                💡 撰寫完畢後點擊【儲存筆記】（或快捷鍵 ⌘/Ctrl+Enter），將立即寫入下方已儲存筆記歷史清單。
+                💡 撰寫完畢後點擊【儲存筆記】（或按Enter輸入）
               </span>
               <span className="font-mono">
                 字數：{projectMemoInput.length} 字

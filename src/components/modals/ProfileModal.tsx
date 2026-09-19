@@ -40,9 +40,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
       <div
-        className={`w-full max-w-md rounded-3xl p-6 sm:p-7 shadow-2xl border transition-all ${
+        className={`w-full max-w-md max-h-[85vh] overflow-y-auto rounded-3xl p-6 sm:p-7 pb-20 sm:pb-7 shadow-2xl border transition-all ${
           isWarm ? 'bg-white border-stone-200 text-stone-900' : 'bg-slate-900 border-slate-800 text-slate-100'
         }`}
       >

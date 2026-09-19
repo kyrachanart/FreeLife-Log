@@ -163,14 +163,15 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({
               setSelectedProjId(e.target.value);
               if (onSelectProject) onSelectProject(e.target.value);
             }}
-            className={`w-full text-xs font-semibold rounded-xl px-2.5 py-2 border outline-none transition-colors ${
+            style={{ textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden', maxWidth: '100%' }}
+            className={`w-full max-w-full truncate text-xs font-semibold rounded-xl px-2.5 py-2 border outline-none transition-colors ${
               isWarm
                 ? 'bg-stone-50 border-stone-300 text-stone-800 focus:ring-1 focus:ring-emerald-500'
                 : 'bg-slate-800/90 border-slate-700 text-slate-100 focus:ring-1 focus:ring-emerald-500'
             }`}
           >
             {projects.map((p) => (
-              <option key={p.id} value={p.id}>
+              <option key={p.id} value={p.id} className="truncate">
                 {p.name} · [{p.feeType === 'fixed' ? `一口價 $${p.totalContractAmount.toLocaleString()}` : `時薪 $${p.targetHourlyRate}/h`}]
               </option>
             ))}

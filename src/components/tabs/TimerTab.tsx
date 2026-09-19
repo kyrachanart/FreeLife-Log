@@ -12,8 +12,6 @@ import {
   RotateCcw,
   Edit2,
   TrendingUp,
-  Eye,
-  EyeOff,
   DollarSign,
   PieChart,
   MoreVertical,
@@ -21,6 +19,7 @@ import {
   Layers,
   FolderMinus,
   Square,
+  Sparkles,
 } from 'lucide-react';
 import { Project, TimeSession, TimerBridge } from '../../types';
 import { useTheme } from '../../ThemeContext';
@@ -34,6 +33,8 @@ import {
   loadFromLocalStorage,
   saveToLocalStorage,
 } from '../../utils/storage';
+import { soundEffects } from '../../utils/audioAlerts';
+import { sendSystemNotification } from '../../utils/notifications';
 
 export interface ActiveTimerSaveState {
   selectedProjectId: string;
@@ -169,12 +170,13 @@ export const TimerTab: React.FC<TimerTabProps> = ({
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Re-render tick trigger
-  const [, setTick] = useState<number>(0);
+  const [tick, setTick] = useState<number>(0);
 
   // Toast and alert snooze states
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastType, setToastType] = useState<'focus' | 'break'>('focus');
   const [snoozedAlert, setSnoozedAlert] = useState(false);
+  const hasTriggered2HourAlertRef = useRef<boolean>(false);
 
   // Keep selectedProjectId synchronized if project list changes
   useEffect(() => {
@@ -262,6 +264,29 @@ export const TimerTab: React.FC<TimerTabProps> = ({
       window.removeEventListener('pageshow', handleWakeUp);
     };
   }, []);
+
+  // 4b. 2-Hour Continuous Focus Work Alert Trigger (Sound & Notification)
+  useEffect(() => {
+    if (timerState !== 'working' || !continuousWorkStartTime) {
+      hasTriggered2HourAlertRef.current = false;
+      return;
+    }
+
+    const focusSeconds = Math.max(0, Math.floor((Date.now() - continuousWorkStartTime) / 1000));
+    console.log("Current Focus Seconds:", focusSeconds);
+
+    // 2-Hour Continuous Alert: triggered at 120 minutes (7200s or more)
+    if (focusSeconds >= 7200 && !hasTriggered2HourAlertRef.current) {
+      hasTriggered2HourAlertRef.current = true;
+      console.log("2-Hour Alert Triggered!");
+      soundEffects.playTwoHourWaterChime();
+      sendSystemNotification({
+        title: '☕ FreeLife Log 專注提醒',
+        body: '您已連續工作滿 2 小時！是時候放下工作喝杯水、拉拉筋，讓身體和大腦好好休息一下。',
+        tag: '2hour-focus-break',
+      });
+    }
+  }, [timerState, continuousWorkStartTime, tick]);
 
   // 5. Persist timer state to localStorage
   useEffect(() => {
@@ -521,7 +546,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
       return Math.max(0, Math.floor((Date.now() - continuousWorkStartTime) / 1000));
     }
     return 0;
-  }, [timerState, continuousWorkStartTime]);
+  }, [timerState, continuousWorkStartTime, tick]);
 
   const isTwoHourAlertActive =
     timerState === 'working' && continuousSeconds >= 7200 && !snoozedAlert;
@@ -811,10 +836,23 @@ export const TimerTab: React.FC<TimerTabProps> = ({
     : undefined;
 
   const handleTest2HourAlert = () => {
-    setContinuousWorkStartTime(Date.now() - 7205 * 1000);
+    const simulatedStartTime = Date.now() - 7205 * 1000;
+    setContinuousWorkStartTime(simulatedStartTime);
     setTimerState('working');
+    if (workStartedAt === null) {
+      setWorkStartedAt(simulatedStartTime);
+    }
     setSnoozedAlert(false);
-    showToast('⚡ 已模擬觸發 2 小時見字飲水提醒');
+    hasTriggered2HourAlertRef.current = true;
+    console.log("2-Hour Alert Triggered!");
+    soundEffects.playTwoHourWaterChime();
+    sendSystemNotification({
+      title: '☕ FreeLife Log 專注提醒 (測試)',
+      body: '您已連續工作滿 2 小時！是時候放下工作喝杯水、拉拉筋，讓身體和大腦好好休息一下。',
+      tag: '2hour-focus-break-test',
+    });
+    showToast('💧 已模擬觸發 2 小時見字飲水提醒與音效！');
+    setTick((t) => (t + 1) % 1000000);
   };
 
   const hasProject = projects.length > 0 && !!currentProject;
@@ -841,41 +879,62 @@ export const TimerTab: React.FC<TimerTabProps> = ({
         </div>
       )}
 
+      {/* 2-Hour Continuous Focus Overlay Pop-up Modal (Fixed Overlay - Does NOT push/shift layout, Timer continues running) */}
       {isTwoHourAlertActive && (
-        <div className="rounded-3xl p-5 sm:p-6 bg-gradient-to-r from-amber-500/20 via-amber-500/10 to-amber-500/20 border-2 border-amber-500 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4 animate-pulse">
-          <div className="flex items-center gap-3">
-            <div className="p-3 rounded-2xl bg-amber-500 text-white shadow-md shrink-0">
-              <Droplets size={24} />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
+          <div
+            className={`w-full max-w-md rounded-3xl p-6 sm:p-7 border shadow-2xl space-y-5 animate-in zoom-in-95 duration-200 ${
+              isWarm
+                ? 'bg-white border-amber-300 text-stone-900 shadow-amber-950/20'
+                : 'bg-slate-900 border-amber-600/50 text-slate-100 shadow-black/60'
+            }`}
+          >
+            <div className="flex items-start gap-4">
+              <div className="p-3.5 rounded-2xl bg-amber-500 text-white shadow-lg shadow-amber-500/30 shrink-0">
+                <Droplets size={28} />
+              </div>
+              <div className="space-y-1">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300">
+                  <span>☕ 專注健康提醒</span>
+                </div>
+                <h3 className="font-black text-lg sm:text-xl tracking-tight text-stone-900 dark:text-slate-100">
+                  💧 已經工作 2 小時，見字飲水，要休息啦！
+                </h3>
+                <p className="text-xs text-stone-600 dark:text-slate-300 leading-relaxed pt-1">
+                  長時間連續專注容易導致視覺與精神疲勞。適度暫停休息完全不計入工時，能幫助維持高質量產出。
+                </p>
+              </div>
             </div>
-            <div>
-              <h4 className="font-extrabold text-base tracking-tight">
-                💧 已經工作 2 小時，見字飲水，要休息啦！
-              </h4>
-              <p className="text-xs text-amber-800 dark:text-amber-300 mt-0.5">
-                長時間專注容易視覺與精神疲勞。適度暫停休息完全不計入工時，能幫助維持高質量產出。
-              </p>
-            </div>
-          </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-end shrink-0">
-            <button
-              onClick={() => setSnoozedAlert(true)}
-              className="px-3.5 py-2 rounded-xl text-xs font-bold text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-950 transition-colors cursor-pointer"
-            >
-              稍後提醒
-            </button>
-            <button
-              onClick={handlePause}
-              className="px-5 py-2.5 rounded-xl text-xs font-extrabold bg-amber-600 hover:bg-amber-700 text-white shadow-md flex items-center gap-1.5 transition-all cursor-pointer"
-            >
-              <Coffee size={15} />
-              <span>立即暫停休息</span>
-            </button>
+            <div className="pt-2 flex flex-col sm:flex-row items-center gap-2.5 w-full">
+              <button
+                type="button"
+                onClick={() => setSnoozedAlert(true)}
+                className={`w-full sm:w-1/2 py-3 px-4 rounded-2xl text-xs font-bold border transition-colors cursor-pointer text-center ${
+                  isWarm
+                    ? 'border-stone-200 hover:bg-stone-100 text-stone-600'
+                    : 'border-slate-700 hover:bg-slate-800 text-slate-300'
+                }`}
+              >
+                稍後提醒
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSnoozedAlert(true);
+                  handlePause();
+                }}
+                className="w-full sm:w-1/2 py-3 px-4 rounded-2xl text-xs font-extrabold bg-amber-600 hover:bg-amber-700 text-white shadow-md shadow-amber-600/25 flex items-center justify-center gap-1.5 transition-all cursor-pointer hover:scale-102 active:scale-98"
+              >
+                <Coffee size={15} />
+                <span>立即暫停休息</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Top Project Selector & Header */}
+      {/* Top Project Selector & Info (Frameless / No Card Box) */}
       {(() => {
         const displayProj = currentProject;
         const clientColor = displayProj
@@ -886,23 +945,15 @@ export const TimerTab: React.FC<TimerTabProps> = ({
           : '2026/09/19';
 
         return (
-          <div
-            className={`rounded-3xl p-3.5 sm:p-4 border transition-all ${
-              isWarm ? 'bg-white border-stone-200 shadow-sm' : 'bg-slate-900 border-slate-800'
-            }`}
-            style={{
-              borderLeftWidth: '4px',
-              borderLeftColor: clientColor,
-            }}
-          >
+          <div className="px-1 py-1">
             {projects.length > 0 ? (
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 w-full text-xs">
-                {/* 1. 第一列 (Mobile): 選擇 PROJECT 與 佔滿剩餘寬度的下拉選單 */}
-                <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
-                  <span className="font-bold text-stone-500 dark:text-slate-400 whitespace-nowrap shrink-0">
+                {/* 1. 左側群組: 選擇 PROJECT + 下拉選單 + Client 標籤 + 種類型 Tab 靠在 project 右邊 */}
+                <div className="flex items-center gap-2 flex-wrap min-w-0">
+                  <span className="font-bold text-stone-500 dark:text-slate-400 whitespace-nowrap shrink-0 text-xs">
                     選擇 PROJECT:
                   </span>
-                  <div className="flex-1 min-w-0 sm:w-[210px]">
+                  <div className="w-[180px] sm:w-[220px] shrink-0">
                     <ProjectSelectDropdown
                       projects={projects}
                       selectedProjectId={selectedProjectId}
@@ -911,14 +962,11 @@ export const TimerTab: React.FC<TimerTabProps> = ({
                       className="w-full"
                     />
                   </div>
-                </div>
 
-                {/* 2. 第二列 (Mobile) / 右側區域 (Desktop): Client 標籤、類別標籤與建立日期 */}
-                {displayProj && (
-                  <div className="flex flex-wrap items-center justify-between gap-2 w-full sm:w-auto sm:flex-1 sm:justify-end sm:gap-3 min-w-0">
+                  {displayProj && (
                     <div className="flex items-center gap-1.5 flex-wrap min-w-0">
                       <span
-                        className="font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5 border shadow-2xs shrink-0 max-w-full"
+                        className="font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5 border shadow-2xs shrink-0 max-w-full text-xs"
                         style={{
                           backgroundColor: `${clientColor}18`,
                           color: clientColor,
@@ -930,16 +978,18 @@ export const TimerTab: React.FC<TimerTabProps> = ({
                       </span>
 
                       {displayProj.category && (
-                        <span className="font-bold px-2.5 py-1 rounded-full bg-stone-100 dark:bg-slate-800 text-stone-600 dark:text-slate-300 border border-stone-200 dark:border-slate-700 shrink-0 whitespace-nowrap">
+                        <span className="font-bold px-2.5 py-1 rounded-full bg-stone-100 dark:bg-slate-800 text-stone-600 dark:text-slate-300 border border-stone-200 dark:border-slate-700 shrink-0 whitespace-nowrap text-xs">
                           {displayProj.category}
                         </span>
                       )}
                     </div>
+                  )}
+                </div>
 
-                    {/* 建立日期 */}
-                    <div className="shrink-0 font-semibold text-stone-500 dark:text-slate-400 whitespace-nowrap text-[11px] sm:text-xs">
-                      建立於 <span className="font-mono">{formattedDate}</span>
-                    </div>
+                {/* 2. 右側: 建立日期 (位置不變，靠最右側) */}
+                {displayProj && (
+                  <div className="shrink-0 font-semibold text-stone-500 dark:text-slate-400 whitespace-nowrap text-[11px] sm:text-xs sm:ml-auto">
+                    建立於 <span className="font-mono">{formattedDate}</span>
                   </div>
                 )}
               </div>
@@ -1228,17 +1278,19 @@ export const TimerTab: React.FC<TimerTabProps> = ({
       </div>
 
         {/* Footer info */}
-        <div className="mt-6 pt-4 border-t border-stone-100 dark:border-slate-800/60 flex flex-col sm:flex-row items-center justify-between text-[11px] text-stone-400 dark:text-slate-500 gap-2">
+        <div className="mt-6 pt-4 border-t border-stone-100 dark:border-slate-800/60 flex flex-col sm:flex-row items-center justify-between text-[11px] text-stone-400 dark:text-slate-500 gap-2.5 flex-wrap">
           <span>
             ⏱️ 採用時間戳差值 (Timestamp Delta) 技術，背景切頁、手機鎖屏待機精準零延遲。
           </span>
-          <button
-            onClick={handleTest2HourAlert}
-            className="text-stone-400 hover:text-stone-600 dark:hover:text-slate-300 underline cursor-pointer"
-            title="點擊直接模擬連續開工滿 2 小時觸發智能飲水提醒"
-          >
-            ⚡ 測試 2 小時提醒
-          </button>
+          <div className="flex items-center gap-3 flex-wrap">
+            <button
+              onClick={handleTest2HourAlert}
+              className="text-stone-400 hover:text-amber-600 dark:hover:text-amber-400 underline cursor-pointer"
+              title="點擊直接模擬連續開工滿 2 小時觸發智能飲水提醒"
+            >
+              ⚡ 測試 2 小時提醒
+            </button>
+          </div>
         </div>
 
       {/* Edit Project Modal */}

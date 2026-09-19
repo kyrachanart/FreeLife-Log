@@ -227,14 +227,15 @@ export const ProjectCalculatorScreen: React.FC<ProjectCalculatorScreenProps> = (
         <select
           value={selectedId}
           onChange={(e) => handleSelectProject(e.target.value)}
-          className={`w-full text-xs font-semibold rounded-xl px-3 py-2 border outline-none transition-colors ${
+          style={{ textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden', maxWidth: '100%' }}
+          className={`w-full max-w-full truncate text-xs font-semibold rounded-xl px-3 py-2 border outline-none transition-colors ${
             isWarm
               ? 'bg-white border-stone-300 text-stone-800 focus:ring-1 focus:ring-emerald-500 shadow-xs'
               : 'bg-slate-900 border-slate-800 text-slate-200 focus:ring-1 focus:ring-emerald-500'
           }`}
         >
           {projects.map((p) => (
-            <option key={p.id} value={p.id}>
+            <option key={p.id} value={p.id} className="truncate">
               PROJECT: {p.name} · {p.clientName} [{p.feeType === 'fixed' ? '一口價' : 'Hourly'}]
             </option>
           ))}

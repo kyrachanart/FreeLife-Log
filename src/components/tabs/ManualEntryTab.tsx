@@ -1039,14 +1039,15 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
                 <select
                   value={scopeCreepProjectId}
                   onChange={(e) => setScopeCreepProjectId(e.target.value)}
-                  className={`w-full text-xs font-bold rounded-xl px-3 py-2.5 border outline-none cursor-pointer ${
+                  style={{ textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden', maxWidth: '100%' }}
+                  className={`w-full max-w-full text-xs font-bold rounded-xl px-3 py-2.5 border outline-none cursor-pointer truncate ${
                     isWarm
                       ? 'bg-white border-stone-300 text-stone-900'
                       : 'bg-slate-900 border-slate-700 text-slate-100'
                   }`}
                 >
                   {projects.map((p) => (
-                    <option key={p.id} value={p.id}>
+                    <option key={p.id} value={p.id} className="truncate">
                       {p.name} [{p.clientName}] · HK$ {p.totalContractAmount.toLocaleString()}
                     </option>
                   ))}

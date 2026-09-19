@@ -24,9 +24,9 @@ export const ConfirmDeleteProjectModal: React.FC<ConfirmDeleteProjectModalProps>
   if (!isOpen || !project) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
       <div
-        className={`w-full max-w-md rounded-3xl p-6 sm:p-7 border shadow-2xl transition-all ${
+        className={`w-full max-w-md max-h-[85vh] overflow-y-auto rounded-3xl p-6 sm:p-7 pb-20 sm:pb-7 border shadow-2xl transition-all ${
           isWarm ? 'bg-white border-stone-200 text-stone-900' : 'bg-slate-900 border-slate-800 text-slate-100'
         }`}
       >

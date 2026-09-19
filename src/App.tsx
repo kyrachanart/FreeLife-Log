@@ -198,6 +198,28 @@ function AppContent() {
     showToast('已刪除工時紀錄並重新計算。');
   }, [showToast]);
 
+  // Update a session (e.g. edit task description)
+  const handleUpdateSession = useCallback((updatedSession: TimeSession) => {
+    setSessions((prev) => {
+      const oldSession = prev.find((s) => s.id === updatedSession.id);
+      if (oldSession && oldSession.workDurationMinutes !== updatedSession.workDurationMinutes) {
+        const diffHours = (updatedSession.workDurationMinutes - oldSession.workDurationMinutes) / 60;
+        setProjects((prevProj) =>
+          prevProj.map((p) => {
+            if (p.id === updatedSession.projectId) {
+              return {
+                ...p,
+                totalWorkedHours: Math.max(0, +(p.totalWorkedHours + diffHours).toFixed(4)),
+              };
+            }
+            return p;
+          })
+        );
+      }
+      return prev.map((s) => (s.id === updatedSession.id ? updatedSession : s));
+    });
+  }, []);
+
   // Delete an entire Project and its associated Timesheet records
   const handleDeleteProject = useCallback((projectId: string) => {
     setProjects((prev) => {
@@ -501,14 +523,16 @@ function AppContent() {
               </div>
             </button>
 
-            {/* Prominent New Project Button (With Timer Interception Safeguard) */}
-            <button
-              onClick={handleTriggerNewProject}
-              className="h-9 px-4 rounded-xl text-xs sm:text-sm font-black bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center transition-all shadow-md shadow-emerald-600/20 cursor-pointer hover:scale-102"
-              title="創建新的 Project"
-            >
-              <span>＋ 新增 Project</span>
-            </button>
+            {/* Prominent New Project Button (With Timer Interception Safeguard) - Hidden during empty state */}
+            {projects.length > 0 && (
+              <button
+                onClick={handleTriggerNewProject}
+                className="h-9 px-4 rounded-xl text-xs sm:text-sm font-black bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center transition-all shadow-md shadow-emerald-600/20 cursor-pointer hover:scale-102"
+                title="創建新的 Project"
+              >
+                <span>＋ 新增 Project</span>
+              </button>
+            )}
 
             {/* Clear All Data with Modal Confirmation - Explicitly labelled "重置紀錄" */}
             <button
@@ -611,6 +635,7 @@ function AppContent() {
             projects={projects}
             sessions={sessions}
             onDeleteSession={handleDeleteSession}
+            onUpdateSession={handleUpdateSession}
             onDeleteProject={handleDeleteProject}
             onDeleteProjects={handleDeleteProjects}
             onMoveProjects={handleMoveProjects}

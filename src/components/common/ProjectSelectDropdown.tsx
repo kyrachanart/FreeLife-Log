@@ -11,6 +11,7 @@ interface ProjectSelectDropdownProps {
   className?: string;
   placeholder?: string;
   disabled?: boolean;
+  variant?: 'default' | 'header';
 }
 
 export const ProjectSelectDropdown: React.FC<ProjectSelectDropdownProps> = ({
@@ -20,6 +21,7 @@ export const ProjectSelectDropdown: React.FC<ProjectSelectDropdownProps> = ({
   className = '',
   placeholder = '選擇 Project...',
   disabled = false,
+  variant = 'default',
 }) => {
   const { theme } = useTheme();
   const isWarm = theme === 'warm';
@@ -76,62 +78,112 @@ export const ProjectSelectDropdown: React.FC<ProjectSelectDropdownProps> = ({
     ? getClientColor(currentProject.clientName, currentProject.clientColor || currentProject.color)
     : '#2563EB';
 
+  const isHeader = variant === 'header';
+
   return (
     <div ref={containerRef} className={`relative inline-block ${className}`}>
       {/* Trigger Button */}
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => !disabled && setIsOpen(!isOpen)}
-        title={
-          disabled
-            ? '計時進行中已鎖定 Project。如需查看其他 Project 資料，請切換至「Project 總覽」'
-            : undefined
-        }
-        className={`w-full flex items-center justify-between gap-2 rounded-xl px-2.5 py-1.5 sm:px-3 sm:py-2 text-left border transition-all select-none ${
-          disabled
-            ? 'opacity-60 grayscale cursor-not-allowed bg-stone-100 dark:bg-slate-900 border-stone-300 dark:border-slate-700 text-stone-700 dark:text-slate-300 shadow-none'
-            : isWarm
-            ? 'bg-stone-50 hover:bg-stone-100/80 border-stone-300 text-stone-900 focus:ring-2 focus:ring-stone-400 cursor-pointer'
-            : 'bg-slate-950 hover:bg-slate-900 border-slate-700 text-slate-100 focus:ring-2 focus:ring-slate-500 cursor-pointer'
-        }`}
-      >
-        <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
-          {currentProject ? (
-            <>
-              {/* Solid Client Color Dot */}
-              <span
-                className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs"
-                style={{ backgroundColor: currentClientColor }}
-              />
-              {/* Project Name */}
-              <span className="font-bold text-xs sm:text-sm truncate overflow-hidden whitespace-nowrap">
-                {currentProject.name}
-              </span>
-            </>
-          ) : (
-            <span className="text-stone-400 dark:text-slate-500 text-xs sm:text-sm truncate">
-              {placeholder}
-            </span>
-          )}
-        </div>
-
-        {disabled ? (
-          <Lock size={14} className="shrink-0 text-stone-400 dark:text-slate-500" />
-        ) : (
-          <ChevronDown
-            size={16}
-            className={`text-stone-400 dark:text-slate-400 transition-transform duration-200 shrink-0 ${
-              isOpen ? 'rotate-180' : ''
-            }`}
+      {isHeader ? (
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => !disabled && setIsOpen(!isOpen)}
+          title={
+            disabled
+              ? '計時進行中已鎖定 Project'
+              : '點擊切換當前 Project'
+          }
+          className={`flex items-center gap-1.5 py-0.5 px-1.5 -ml-1.5 rounded-lg transition-all select-none cursor-pointer group ${
+            disabled
+              ? 'opacity-60 grayscale cursor-not-allowed'
+              : 'hover:bg-stone-200/50 dark:hover:bg-slate-800/60 active:scale-98'
+          }`}
+        >
+          {/* Client Color Dot */}
+          <span
+            className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs"
+            style={{ backgroundColor: currentClientColor }}
           />
-        )}
-      </button>
+          {/* Project Name (pure text style, 16px/18px font-semibold, max-w-240px ellipsis) */}
+          <span
+            className="font-semibold text-sm sm:text-base text-stone-800 dark:text-slate-200 group-hover:text-stone-950 dark:group-hover:text-white truncate block max-w-[170px] sm:max-w-[240px] md:max-w-[320px]"
+            style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+          >
+            {currentProject ? currentProject.name : placeholder}
+          </span>
+          {/* Chevron */}
+          {disabled ? (
+            <Lock size={13} className="shrink-0 text-stone-400 dark:text-slate-500 ml-0.5" />
+          ) : (
+            <ChevronDown
+              size={15}
+              className={`text-stone-400 dark:text-slate-400 transition-transform duration-200 shrink-0 ml-0.5 ${
+                isOpen ? 'rotate-180 text-stone-700 dark:text-slate-200' : ''
+              }`}
+            />
+          )}
+        </button>
+      ) : (
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => !disabled && setIsOpen(!isOpen)}
+          title={
+            disabled
+              ? '計時進行中已鎖定 Project。如需查看其他 Project 資料，請切換至「Project 總覽」'
+              : undefined
+          }
+          className={`w-full flex items-center justify-between gap-2 rounded-xl px-2.5 py-1.5 sm:px-3 sm:py-2 text-left border transition-all select-none ${
+            disabled
+              ? 'opacity-60 grayscale cursor-not-allowed bg-stone-100 dark:bg-slate-900 border-stone-300 dark:border-slate-700 text-stone-700 dark:text-slate-300 shadow-none'
+              : isWarm
+              ? 'bg-stone-50 hover:bg-stone-100/80 border-stone-300 text-stone-900 focus:ring-2 focus:ring-stone-400 cursor-pointer'
+              : 'bg-slate-950 hover:bg-slate-900 border-slate-700 text-slate-100 focus:ring-2 focus:ring-slate-500 cursor-pointer'
+          }`}
+        >
+          <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
+            {currentProject ? (
+              <>
+                {/* Solid Client Color Dot */}
+                <span
+                  className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs"
+                  style={{ backgroundColor: currentClientColor }}
+                />
+                {/* Project Name */}
+                <span
+                  className="font-bold text-xs sm:text-sm truncate block max-w-full"
+                  style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}
+                >
+                  {currentProject.name}
+                </span>
+              </>
+            ) : (
+              <span
+                className="text-stone-400 dark:text-slate-500 text-xs sm:text-sm truncate block max-w-full"
+                style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}
+              >
+                {placeholder}
+              </span>
+            )}
+          </div>
+
+          {disabled ? (
+            <Lock size={14} className="shrink-0 text-stone-400 dark:text-slate-500" />
+          ) : (
+            <ChevronDown
+              size={16}
+              className={`text-stone-400 dark:text-slate-400 transition-transform duration-200 shrink-0 ${
+                isOpen ? 'rotate-180' : ''
+              }`}
+            />
+          )}
+        </button>
+      )}
 
       {/* Custom Dropdown Menu */}
       {isOpen && !disabled && (
         <div
-          className={`absolute left-0 right-0 sm:min-w-[340px] max-w-[480px] mt-1.5 z-50 rounded-2xl border shadow-xl max-h-[350px] overflow-y-auto overflow-x-hidden p-1.5 transition-all animate-in fade-in zoom-in-95 duration-100 ${
+          className={`absolute left-0 sm:min-w-[340px] max-w-[480px] mt-1.5 z-50 rounded-2xl border shadow-xl max-h-[350px] overflow-y-auto overflow-x-hidden p-1.5 transition-all animate-in fade-in zoom-in-95 duration-100 ${
             isWarm
               ? 'bg-white border-stone-200 text-stone-900 shadow-stone-900/10'
               : 'bg-slate-900 border-slate-800 text-slate-100 shadow-black/40'
@@ -192,14 +244,19 @@ export const ProjectSelectDropdown: React.FC<ProjectSelectDropdownProps> = ({
                               : 'hover:bg-slate-800/50 text-slate-200 font-medium'
                           }`}
                         >
-                          <div className="flex items-center gap-2 min-w-0 flex-1 truncate">
+                          <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
                             {/* Color Dot */}
                             <span
                               className="w-2 h-2 rounded-full shrink-0"
                               style={{ backgroundColor: clientColor }}
                             />
                             {/* Project Name */}
-                            <span className="truncate font-medium">{p.name}</span>
+                            <span
+                              className="truncate font-medium block max-w-full"
+                              style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}
+                            >
+                              {p.name}
+                            </span>
                           </div>
 
                           <div className="flex items-center gap-2 shrink-0">

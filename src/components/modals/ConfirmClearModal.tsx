@@ -19,9 +19,9 @@ export const ConfirmClearModal: React.FC<ConfirmClearModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs">
       <div
-        className={`w-full max-w-md rounded-3xl p-6 border shadow-2xl transition-all ${
+        className={`w-full max-w-md max-h-[85vh] overflow-y-auto rounded-3xl p-6 pb-20 sm:pb-6 border shadow-2xl transition-all ${
           isWarm ? 'bg-white border-stone-200 text-stone-900' : 'bg-slate-900 border-slate-800 text-slate-100'
         }`}
       >

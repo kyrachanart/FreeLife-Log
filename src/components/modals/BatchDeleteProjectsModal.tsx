@@ -86,9 +86,9 @@ export const BatchDeleteProjectsModal: React.FC<BatchDeleteProjectsModalProps> =
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-xs animate-fadeIn">
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-3 sm:p-4 bg-black/65 backdrop-blur-xs animate-fadeIn">
       <div
-        className={`w-full max-w-lg rounded-3xl p-6 sm:p-7 border shadow-2xl transition-all flex flex-col max-h-[90vh] ${
+        className={`w-full max-w-lg rounded-3xl p-6 sm:p-7 pb-20 sm:pb-7 border shadow-2xl transition-all flex flex-col max-h-[85vh] overflow-y-auto ${
           isWarm ? 'bg-white border-stone-200 text-stone-900' : 'bg-slate-900 border-slate-800 text-slate-100'
         }`}
       >
