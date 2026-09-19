@@ -481,32 +481,32 @@ function AppContent() {
         }`}
       >
         {/* Upper Brand & Controls Bar */}
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-2 sm:px-6 h-16 flex items-center justify-between gap-1 sm:gap-4">
           {/* Logo & Identity */}
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 flex items-center justify-center shrink-0 overflow-hidden">
+          <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center shrink-0 overflow-hidden">
               <img
                 src="/Freelife-log_icon_v2.png"
                 alt="FreeLife Log"
                 className="w-full h-full object-contain bg-transparent"
               />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="font-extrabold text-base sm:text-lg tracking-tight">FreeLife Log</h1>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1">
+                <h1 className="font-extrabold text-xs sm:text-base md:text-lg tracking-tight whitespace-nowrap">FreeLife Log</h1>
               </div>
-              <p className="text-[10px] text-stone-500 dark:text-slate-400">
+              <p className="text-[10px] text-stone-500 dark:text-slate-400 hidden xs:block sm:block truncate">
                 紀錄Freelancer的生活
               </p>
             </div>
           </div>
 
           {/* Header Quick Controls */}
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
             {/* User Profile / Creator Badge */}
             <button
               onClick={() => setIsProfileModalOpen(true)}
-              className={`h-9 px-3 rounded-xl border text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              className={`h-9 px-2 sm:px-3 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
                 isWarm
                   ? 'border-stone-300 bg-stone-100/80 hover:bg-stone-200 text-stone-800'
                   : 'border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-200'
@@ -514,7 +514,7 @@ function AppContent() {
               title="設定製表人姓名與職業"
             >
               <User size={14} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
-              <div className="text-left leading-tight hidden xs:block">
+              <div className="text-left leading-tight hidden md:block">
                 <div className="font-extrabold truncate max-w-[100px] sm:max-w-[130px]">
                   {freelancerProfile.name || '輸入姓名...'}
                 </div>
@@ -527,17 +527,17 @@ function AppContent() {
             {/* Prominent New Project Button (With Timer Interception Safeguard) - Always visible (display: flex) */}
             <button
               onClick={handleTriggerNewProject}
-              className="h-9 px-2.5 sm:px-4 rounded-xl text-xs sm:text-sm font-black bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center gap-1 transition-all shadow-md shadow-emerald-600/20 cursor-pointer hover:scale-102 shrink-0 whitespace-nowrap"
+              className="h-9 px-2 sm:px-4 rounded-xl text-[10px] sm:text-sm font-black bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center gap-1 transition-all shadow-md shadow-emerald-600/20 cursor-pointer hover:scale-102 shrink-0 whitespace-nowrap"
               title="創建新的 Project"
             >
-              <Plus size={15} className="shrink-0" />
+              <Plus size={14} className="shrink-0" />
               <span>新增 Project</span>
             </button>
 
             {/* Clear All Data with Modal Confirmation - Explicitly labelled "重置紀錄" */}
             <button
               onClick={() => setIsClearModalOpen(true)}
-              className={`px-2.5 sm:px-3 py-2 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 whitespace-nowrap ${
+              className={`px-2 sm:px-3 py-2 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 whitespace-nowrap ${
                 isWarm
                   ? 'border-rose-300 bg-rose-50/70 hover:bg-rose-100 text-rose-700'
                   : 'border-rose-900/80 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300'

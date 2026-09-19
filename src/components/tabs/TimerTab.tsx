@@ -1059,9 +1059,21 @@ export const TimerTab: React.FC<TimerTabProps> = ({
             </div>
 
             {!hasProject && (
-              <p className="text-xs font-bold text-rose-600 dark:text-rose-400 text-center">
-                ⚠️ 請先建立或選擇 Project 才能開始計時
-              </p>
+              <div className="flex flex-col items-center gap-2 pt-1.5">
+                <p className="text-xs font-bold text-rose-600 dark:text-rose-400 text-center">
+                  ⚠️ 請先建立或選擇 Project 才能開始計時
+                </p>
+                {onOpenNewProjectModal && (
+                  <button
+                    type="button"
+                    onClick={onOpenNewProjectModal}
+                    className="mt-1 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black flex items-center gap-1.5 transition-all shadow-md shadow-emerald-600/10 cursor-pointer hover:scale-102"
+                  >
+                    <Plus size={14} />
+                    <span>立即新增 Project</span>
+                  </button>
+                )}
+              </div>
             )}
           </div>
         ) : (
