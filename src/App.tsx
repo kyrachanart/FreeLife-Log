@@ -42,6 +42,7 @@ function AppContent() {
   const [isClearModalOpen, setIsClearModalOpen] = useState(false);
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [profileModalTab, setProfileModalTab] = useState<'profile' | 'backup' | 'pwa'>('profile');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [timerResetKey, setTimerResetKey] = useState<number>(0);
 
@@ -517,9 +518,12 @@ function AppContent() {
           <div className="flex items-center gap-2 shrink-0">
             {/* User Profile: Main Menu Card */}
             <button
-              onClick={() => setIsProfileModalOpen(true)}
+              onClick={() => {
+                setProfileModalTab('profile');
+                setIsProfileModalOpen(true);
+              }}
               className="bg-white border border-gray-200 shadow-xs text-gray-800 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-700/70 hover:bg-gray-50 px-3 py-1.5 rounded-xl font-medium text-sm flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 select-none"
-              title="用戶設定"
+              title="用戶與系統設定"
             >
               <User size={15} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
               <span className="truncate max-w-[80px] sm:max-w-none">
@@ -702,12 +706,15 @@ function AppContent() {
         </div>
       </main>
 
-      {/* Profile Modal */}
+      {/* Profile & Backup Settings Modal */}
       <ProfileModal
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
         profile={freelancerProfile}
         onSaveProfile={setFreelancerProfile}
+        projects={projects}
+        sessions={sessions}
+        initialTab={profileModalTab}
       />
 
       {/* Confirmation Modal for Reset / Clear Data */}
