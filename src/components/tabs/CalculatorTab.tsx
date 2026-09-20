@@ -554,18 +554,20 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
         }}
       >
             {/* TOP ACTION & SELECTOR ROWS */}
-            <div className="flex items-center justify-between gap-3 pb-4 border-b border-stone-100 dark:border-slate-800">
-              {/* Left: Label + Dropdown */}
+            <div className="flex items-center justify-between gap-2 sm:gap-3 pb-4 border-b border-stone-100 dark:border-slate-800">
+              {/* Left: Label (hidden on mobile) + Dropdown (occupies main width) */}
               <div className="flex items-center gap-2 flex-1 min-w-0">
-                <span className="text-xs font-bold text-stone-500 dark:text-slate-400 whitespace-nowrap shrink-0">
+                <span className="hidden sm:inline-block text-xs font-bold text-stone-500 dark:text-slate-400 whitespace-nowrap shrink-0">
                   選擇 PROJECT:
                 </span>
-                <ProjectSelectDropdown
-                  projects={projects}
-                  selectedProjectId={viewProjectId}
-                  onSelectProject={(id) => handleViewProjectChange(id)}
-                  className="w-full max-w-sm sm:max-w-md"
-                />
+                <div className="w-full min-w-0 flex-1">
+                  <ProjectSelectDropdown
+                    projects={projects}
+                    selectedProjectId={viewProjectId}
+                    onSelectProject={(id) => handleViewProjectChange(id)}
+                    className="w-full"
+                  />
+                </div>
               </div>
 
               {/* Right: Settings Gear Dropdown */}
