@@ -886,32 +886,37 @@ export const TimerTab: React.FC<TimerTabProps> = ({
       {isTwoHourAlertActive && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
           <div
-            className={`w-full max-w-md rounded-3xl p-6 sm:p-7 border shadow-2xl space-y-5 animate-in zoom-in-95 duration-200 ${
+            className={`w-full max-w-md rounded-3xl p-6 sm:p-7 border-2 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200 animate-gentle-pulse-glow ${
               isWarm
-                ? 'bg-white border-amber-300 text-stone-900 shadow-amber-950/20'
-                : 'bg-slate-900 border-amber-600/50 text-slate-100 shadow-black/60'
+                ? 'bg-white border-amber-400 text-stone-900'
+                : 'bg-slate-900 border-amber-500 text-slate-100'
             }`}
           >
-            <div className="space-y-2">
-              <h3 className="font-black text-lg sm:text-xl tracking-tight text-stone-900 dark:text-slate-100">
-                已經工作 2 小時，要休息啦！
-              </h3>
-              <p className="text-xs text-stone-600 dark:text-slate-300 leading-relaxed pt-1">
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-orange-500 text-white flex items-center justify-center shadow-md shadow-orange-500/30 shrink-0">
+                  <Coffee size={22} className="text-white" />
+                </div>
+                <h3 className="font-black text-lg sm:text-xl tracking-tight text-stone-900 dark:text-slate-100 leading-tight">
+                  已經工作 2 小時，要休息啦！
+                </h3>
+              </div>
+              <p className="text-xs sm:text-sm text-stone-600 dark:text-slate-300 leading-relaxed">
                 長時間連續專注容易導致視覺與精神疲勞。適度暫停休息完全不計入工時，能幫助維持高質量產出。
               </p>
             </div>
 
-            <div className="pt-2 flex flex-col sm:flex-row items-center gap-2.5 w-full">
+            <div className="pt-2 flex flex-col sm:flex-row items-center gap-3 w-full">
               <button
                 type="button"
                 onClick={() => {
                   setSnoozedAlert(true);
                   setIsTestAlertActive(false);
                 }}
-                className={`w-full sm:w-1/2 py-3 px-4 rounded-2xl text-xs font-bold border transition-colors cursor-pointer text-center ${
+                className={`w-full sm:w-1/2 py-3 sm:py-3.5 px-4 rounded-2xl text-base sm:text-lg font-bold border transition-colors cursor-pointer text-center ${
                   isWarm
-                    ? 'border-stone-200 hover:bg-stone-100 text-stone-600'
-                    : 'border-slate-700 hover:bg-slate-800 text-slate-300'
+                    ? 'bg-white border-stone-200 hover:bg-stone-100 text-stone-600'
+                    : 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300'
                 }`}
               >
                 稍後提醒
@@ -923,9 +928,8 @@ export const TimerTab: React.FC<TimerTabProps> = ({
                   setIsTestAlertActive(false);
                   handlePause();
                 }}
-                className="w-full sm:w-1/2 py-3 px-4 rounded-2xl text-xs font-extrabold bg-amber-600 hover:bg-amber-700 text-white shadow-md shadow-amber-600/25 flex items-center justify-center gap-1.5 transition-all cursor-pointer hover:scale-102 active:scale-98"
+                className="w-full sm:w-1/2 py-3 sm:py-3.5 px-4 rounded-2xl text-base sm:text-lg font-bold bg-orange-500 hover:bg-orange-600 text-white border-2 border-white/90 shadow-md shadow-orange-500/25 flex items-center justify-center transition-all cursor-pointer hover:scale-102 active:scale-98"
               >
-                <Coffee size={15} />
                 <span>立即暫停休息</span>
               </button>
             </div>
@@ -1071,7 +1075,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
             </div>
 
             {/* Right: Other mode cumulative time */}
-            <div className="text-gray-500 dark:text-slate-400 text-xs sm:text-sm font-semibold">
+            <div className="text-gray-500 dark:text-slate-400 text-xs sm:text-sm font-semibold font-mono">
               {timerState === 'resting' ? (
                 <span>⏱️ 累積工作：{formatTime(currentWorkSeconds)}</span>
               ) : (
@@ -1081,17 +1085,21 @@ export const TimerTab: React.FC<TimerTabProps> = ({
           </div>
 
           {/* 第 2 層 (核心計時) */}
-          <div className="my-3 text-center">
-            <div className={`font-mono text-6xl sm:text-8xl font-black my-6 select-none tracking-tight leading-none ${
-              timerState === 'resting'
-                ? 'text-amber-600 dark:text-amber-400'
-                : 'text-emerald-600'
-            }`}>
-              {formatTime(timerState === 'resting' ? currentBreakSeconds : currentWorkSeconds)}
+          <div className="w-full flex flex-col justify-center items-center my-3 text-center shrink-0">
+            <div className="w-full flex justify-center items-center py-1 sm:py-2 shrink-0">
+              <div
+                className={`font-mono text-6xl sm:text-8xl font-black select-none tracking-tight leading-none shrink-0 transition-colors duration-200 ${
+                  timerState === 'resting'
+                    ? 'text-amber-600 dark:text-amber-400'
+                    : 'text-emerald-600 dark:text-emerald-400'
+                }`}
+              >
+                {formatTime(timerState === 'resting' ? currentBreakSeconds : currentWorkSeconds)}
+              </div>
             </div>
 
             {/* Cumulative info / helper info */}
-            <div className="text-xs sm:text-sm font-semibold text-gray-500 dark:text-slate-400">
+            <div className="text-xs sm:text-sm font-semibold text-gray-500 dark:text-slate-400 mt-2">
               <span>本節淨工時：{(currentWorkSeconds / 3600).toFixed(2)} 小時 • 開始於：{sessionStartTime || '--:--'}</span>
             </div>
           </div>
