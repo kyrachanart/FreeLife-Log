@@ -562,7 +562,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
   // CONTROLLER ACTIONS
   // 1. 開工 (Start / Resume)
   const handleStart = () => {
-    if (!currentProject || projects.length === 0) {
+    if (!currentProject || projects.length === 0 || !selectedProjectId) {
       showToast('⚠️ 請先建立或選擇 Project 才能開始計時');
       if (onOpenNewProjectModal) onOpenNewProjectModal();
       return;
@@ -601,6 +601,12 @@ export const TimerTab: React.FC<TimerTabProps> = ({
 
   // 2. 暫停休息 (Pause / Break)
   const handlePause = () => {
+    if (!currentProject || projects.length === 0 || !selectedProjectId) {
+      showToast('⚠️ 請先建立或選擇 Project 才能開始計時/休息');
+      if (onOpenNewProjectModal) onOpenNewProjectModal();
+      return;
+    }
+
     const now = Date.now();
 
     let newAccWork = accumulatedWorkSeconds;
@@ -863,7 +869,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
     showToast('已經工作 2 小時，要休息啦！');
   };
 
-  const hasProject = projects.length > 0 && !!currentProject;
+  const hasProject = projects.length > 0 && !!currentProject && !!selectedProjectId;
   const hasActiveSeconds = currentWorkSeconds > 0 || currentBreakSeconds > 0 || timerState !== 'idle';
 
   return (
@@ -926,6 +932,11 @@ export const TimerTab: React.FC<TimerTabProps> = ({
                 onClick={() => {
                   setSnoozedAlert(true);
                   setIsTestAlertActive(false);
+                  if (!hasProject) {
+                    showToast('⚠️ 請先建立或選擇 Project 才能開始計時/休息');
+                    if (onOpenNewProjectModal) onOpenNewProjectModal();
+                    return;
+                  }
                   handlePause();
                 }}
                 className="w-full sm:w-1/2 py-3 sm:py-3.5 px-4 rounded-2xl text-base sm:text-lg font-bold bg-orange-500 hover:bg-orange-600 text-white border-2 border-white/90 shadow-md shadow-orange-500/25 flex items-center justify-center transition-all cursor-pointer hover:scale-102 active:scale-98"
@@ -1110,8 +1121,13 @@ export const TimerTab: React.FC<TimerTabProps> = ({
               /* 1. 未開始計時 (00:00:00)：顯示醒目的綠色主按鈕 [ 開始計時 ] 內部僅保留單一 Play icon */
               <button
                 type="button"
+                disabled={!hasProject}
                 onClick={handleStart}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-12 w-full max-w-xs rounded-full shadow-lg text-base cursor-pointer mx-auto flex items-center justify-center gap-2 border-none transition-all active:scale-98"
+                className={`font-bold h-12 w-full max-w-xs rounded-full text-base mx-auto flex items-center justify-center gap-2 border-none transition-all select-none ${
+                  !hasProject
+                    ? "bg-gray-200 text-gray-400 dark:bg-slate-800 dark:text-slate-600 opacity-50 cursor-not-allowed shadow-none"
+                    : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg cursor-pointer active:scale-98"
+                }`}
               >
                 <Play size={18} fill="currentColor" />
                 <span>開始計時</span>
@@ -1124,19 +1140,19 @@ export const TimerTab: React.FC<TimerTabProps> = ({
                   {/* Left button: ⏱️ 專注工作 */}
                   <button
                     type="button"
+                    disabled={!hasProject}
                     onClick={() => {
-                      if (!hasProject) {
-                        handleStart();
-                        return;
-                      }
+                      if (!hasProject) return;
                       if (timerState === 'resting' || timerState === 'idle') {
                         handleStart();
                       }
                     }}
-                    className={`rounded-full py-2.5 flex-1 cursor-pointer transition-all duration-200 border-none font-bold text-sm ${
-                      timerState !== 'resting'
-                        ? "bg-emerald-600 text-white shadow-md"
-                        : "text-gray-600 hover:bg-gray-200/50 dark:text-slate-300 dark:hover:bg-slate-700/50 font-semibold"
+                    className={`rounded-full py-2.5 flex-1 transition-all duration-200 border-none font-bold text-sm ${
+                      !hasProject
+                        ? "opacity-50 cursor-not-allowed text-gray-400 dark:text-slate-600 select-none"
+                        : timerState !== 'resting'
+                        ? "bg-emerald-600 text-white shadow-md cursor-pointer"
+                        : "text-gray-600 hover:bg-gray-200/50 dark:text-slate-300 dark:hover:bg-slate-700/50 font-semibold cursor-pointer"
                     }`}
                   >
                     <span>⏱️ 專注工作</span>
@@ -1145,20 +1161,19 @@ export const TimerTab: React.FC<TimerTabProps> = ({
                   {/* Right button: ☕ 舒緩休息 */}
                   <button
                     type="button"
+                    disabled={!hasProject}
                     onClick={() => {
-                      if (!hasProject) {
-                        showToast('⚠️ 請先選擇或新增 Project');
-                        if (onOpenNewProjectModal) onOpenNewProjectModal();
-                        return;
-                      }
+                      if (!hasProject) return;
                       if (timerState === 'working' || timerState === 'idle') {
                         handlePause();
                       }
                     }}
-                    className={`rounded-full py-2.5 flex-1 cursor-pointer transition-all duration-200 border-none font-bold text-sm ${
-                      timerState === 'resting'
-                        ? "bg-[#DB6A35] text-white shadow-sm"
-                        : "text-gray-600 hover:bg-gray-200/50 dark:text-slate-300 dark:hover:bg-slate-700/50 font-semibold"
+                    className={`rounded-full py-2.5 flex-1 transition-all duration-200 border-none font-bold text-sm ${
+                      !hasProject
+                        ? "opacity-50 cursor-not-allowed text-gray-400 dark:text-slate-600 select-none"
+                        : timerState === 'resting'
+                        ? "bg-[#DB6A35] text-white shadow-sm cursor-pointer"
+                        : "text-gray-600 hover:bg-gray-200/50 dark:text-slate-300 dark:hover:bg-slate-700/50 font-semibold cursor-pointer"
                     }`}
                   >
                     <span>☕ 舒緩休息</span>
@@ -1168,8 +1183,13 @@ export const TimerTab: React.FC<TimerTabProps> = ({
                 {/* 右側：圓形重置按鈕 */}
                 <button
                   type="button"
+                  disabled={!hasProject || (!isTimerRunning && currentWorkSeconds === 0 && currentBreakSeconds === 0)}
                   onClick={handleOpenResetConfirm}
-                  className="p-2 bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-full text-gray-600 dark:text-slate-300 transition-colors cursor-pointer flex items-center justify-center border-none shrink-0"
+                  className={`p-2 rounded-full transition-colors flex items-center justify-center border-none shrink-0 ${
+                    !hasProject || (!isTimerRunning && currentWorkSeconds === 0 && currentBreakSeconds === 0)
+                      ? "bg-gray-100 text-gray-300 dark:bg-slate-800 dark:text-slate-600 opacity-50 cursor-not-allowed select-none"
+                      : "bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-gray-600 dark:text-slate-300 cursor-pointer"
+                  }`}
                   title="重新計時（重置本節時間）"
                 >
                   <RotateCcw size={18} />
