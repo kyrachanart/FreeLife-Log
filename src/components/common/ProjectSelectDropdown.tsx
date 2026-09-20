@@ -151,7 +151,7 @@ export const ProjectSelectDropdown: React.FC<ProjectSelectDropdownProps> = ({
                 />
                 {/* Project Name */}
                 <span
-                  className="font-bold text-xs sm:text-sm truncate block max-w-full"
+                  className="font-bold sm:font-extrabold text-sm sm:text-base truncate block max-w-full"
                   style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}
                 >
                   {currentProject.name}
@@ -159,7 +159,7 @@ export const ProjectSelectDropdown: React.FC<ProjectSelectDropdownProps> = ({
               </>
             ) : (
               <span
-                className="text-stone-400 dark:text-slate-500 text-xs sm:text-sm truncate block max-w-full"
+                className="text-stone-400 dark:text-slate-500 text-sm sm:text-base truncate block max-w-full"
                 style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}
               >
                 {placeholder}

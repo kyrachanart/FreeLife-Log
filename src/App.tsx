@@ -459,15 +459,10 @@ function AppContent() {
           id="app-global-toast"
           className={`fixed top-24 right-6 z-50 text-white px-4 py-2.5 rounded-2xl shadow-xl text-sm font-semibold flex items-center gap-2 border transition-all duration-200 animate-in fade-in slide-in-from-top-2 ${
             isResting || toastMessage.includes('休息') || toastMessage.includes('☕')
-              ? 'bg-[#ea580c] border-orange-400 shadow-orange-950/20'
+              ? 'bg-[#DB6A35] border-[#ea580c] shadow-orange-950/20'
               : 'bg-emerald-600 border-emerald-400 shadow-emerald-950/20'
           }`}
         >
-          {isResting || toastMessage.includes('休息') || toastMessage.includes('☕') ? (
-            <Coffee size={16} className="text-white shrink-0" />
-          ) : (
-            <CheckCircle2 size={16} className="text-white shrink-0" />
-          )}
           <span>{toastMessage}</span>
         </div>
       )}
@@ -495,7 +490,7 @@ function AppContent() {
               <div className="flex items-center gap-1">
                 <h1 className="font-extrabold text-xs sm:text-base md:text-lg tracking-tight whitespace-nowrap">FreeLife Log</h1>
               </div>
-              <p className="text-[10px] text-stone-500 dark:text-slate-400 hidden xs:block sm:block truncate">
+              <p className="text-[10px] text-stone-500 dark:text-slate-400 truncate">
                 紀錄Freelancer的生活
               </p>
             </div>
@@ -524,28 +519,18 @@ function AppContent() {
               </div>
             </button>
 
-            {/* Prominent New Project Button (With Timer Interception Safeguard) - Always visible (display: flex) */}
-            <button
-              onClick={handleTriggerNewProject}
-              className="h-9 px-2 sm:px-4 rounded-xl text-[10px] sm:text-sm font-black bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center gap-1 transition-all shadow-md shadow-emerald-600/20 cursor-pointer hover:scale-102 shrink-0 whitespace-nowrap"
-              title="創建新的 Project"
-            >
-              <Plus size={14} className="shrink-0" />
-              <span>新增 Project</span>
-            </button>
-
-            {/* Clear All Data with Modal Confirmation - Explicitly labelled "重置紀錄" */}
+            {/* Clear All Data with Modal Confirmation - Explicitly labelled "重置" */}
             <button
               onClick={() => setIsClearModalOpen(true)}
-              className={`px-2 sm:px-3 py-2 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 whitespace-nowrap ${
+              className={`px-2.5 sm:px-3 py-2 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 whitespace-nowrap ${
                 isWarm
-                  ? 'border-rose-300 bg-rose-50/70 hover:bg-rose-100 text-rose-700'
-                  : 'border-rose-900/80 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300'
+                  ? 'border-gray-200 bg-white hover:bg-gray-50 text-gray-600 shadow-2xs'
+                  : 'border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 shadow-2xs'
               }`}
               title="清空所有紀錄與資料（含防呆確認）"
             >
-              <RotateCcw size={14} className="shrink-0" />
-              <span className="hidden sm:inline">重置紀錄</span>
+              <RotateCcw size={14} className="shrink-0 text-gray-500 dark:text-slate-400" />
+              <span className="hidden sm:inline">重置</span>
             </button>
           </div>
         </div>
@@ -559,7 +544,7 @@ function AppContent() {
             id="global-active-timer-banner"
             className={`rounded-2xl p-4 border-2 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in duration-200 ${
               isResting
-                ? 'bg-[#fff7ed] dark:bg-[#281810] border-[#ea580c]'
+                ? 'bg-orange-50/70 dark:bg-[#281810] border-[#DB6A35]'
                 : 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500/60'
             }`}
           >
@@ -567,30 +552,24 @@ function AppContent() {
               <span className="relative flex h-3 w-3 shrink-0">
                 <span
                   className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
-                    isResting ? 'bg-orange-400' : 'bg-emerald-400'
+                    isResting ? 'bg-[#DB6A35]' : 'bg-emerald-400'
                   }`}
                 />
                 <span
                   className={`relative inline-flex rounded-full h-3 w-3 ${
-                    isResting ? 'bg-[#ea580c]' : 'bg-emerald-500'
+                    isResting ? 'bg-[#DB6A35] animate-pulse' : 'bg-emerald-500 animate-pulse'
                   }`}
                 />
               </span>
               <span
-                className={`text-xs sm:text-sm font-black truncate ${
+                className={`text-sm sm:text-base font-black truncate ${
                   isResting
                     ? 'text-[#9a3412] dark:text-[#fdba74]'
                     : 'text-emerald-950 dark:text-emerald-200'
                 }`}
-                title={
-                  isResting
-                    ? `☕ 「${activeTimerProjectName}」休息中... CHILL 下先啦`
-                    : `⏱️ 正在為「${activeTimerProjectName}」計時中`
-                }
+                title={`⏱️ 正在為「${activeTimerProjectName}」計時中`}
               >
-                {isResting
-                  ? `☕ 「${activeTimerProjectName}」休息中... CHILL 下先啦`
-                  : `⏱️ 正在為「${activeTimerProjectName}」計時中`}
+                {`⏱️ 正在為「${activeTimerProjectName}」計時中`}
               </span>
             </div>
 
@@ -600,12 +579,12 @@ function AppContent() {
               onClick={handleReturnToActiveTimerProject}
               className={`px-3.5 py-1.5 rounded-xl font-black text-xs text-white transition-all cursor-pointer shadow-xs self-end sm:self-auto shrink-0 flex items-center gap-1 hover:scale-102 active:scale-98 ${
                 isResting
-                  ? 'bg-[#ea580c] hover:bg-[#c2410c]'
+                  ? 'bg-[#DB6A35] hover:bg-[#b84a1d]'
                   : 'bg-emerald-600 hover:bg-emerald-700'
               }`}
-              title="回到計時專案"
+              title="回到計時"
             >
-              <span>回到計時專案 ➔</span>
+              <span>回到計時 ➔</span>
             </button>
           </div>
         )}
