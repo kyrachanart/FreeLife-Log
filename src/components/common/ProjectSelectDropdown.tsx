@@ -81,7 +81,7 @@ export const ProjectSelectDropdown: React.FC<ProjectSelectDropdownProps> = ({
   const isHeader = variant === 'header';
 
   return (
-    <div ref={containerRef} className={`relative inline-block ${className}`}>
+    <div ref={containerRef} className={`relative ${className.includes('w-full') ? 'w-full' : 'inline-block'} ${className}`}>
       {/* Trigger Button */}
       {isHeader ? (
         <button
