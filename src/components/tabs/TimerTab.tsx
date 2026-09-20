@@ -272,9 +272,12 @@ export const TimerTab: React.FC<TimerTabProps> = ({
     };
   }, []);
 
+  const hasProject = projects.length > 0 && !!currentProject && !!selectedProjectId;
+  const isWorkingFocusRunning = hasProject && timerState === 'working' && workStartedAt !== null;
+
   // 4b. 2-Hour Continuous Focus Work Alert Trigger (Sound & Notification)
   useEffect(() => {
-    if (timerState !== 'working' || !continuousWorkStartTime) {
+    if (!isWorkingFocusRunning || !continuousWorkStartTime) {
       hasTriggered2HourAlertRef.current = false;
       return;
     }
@@ -294,7 +297,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
       });
       setSnoozedAlert(false);
     }
-  }, [timerState, continuousWorkStartTime, tick]);
+  }, [isWorkingFocusRunning, continuousWorkStartTime, tick]);
 
   // 5. Persist timer state to localStorage
   useEffect(() => {
@@ -557,7 +560,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
   }, [timerState, continuousWorkStartTime, tick]);
 
   const isTwoHourAlertActive =
-    isTestAlertActive || (timerState === 'working' && continuousSeconds >= 7200 && !snoozedAlert);
+    isWorkingFocusRunning && (isTestAlertActive || (continuousSeconds >= 7200 && !snoozedAlert));
 
   // CONTROLLER ACTIONS
   // 1. 開工 (Start / Resume)
@@ -619,6 +622,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
     setBreakStartedAt(now);
     setTimerState('resting');
     setContinuousWorkStartTime(null);
+    setIsTestAlertActive(false);
 
     showToast('☕ 已切換至舒緩休息模式', 'break');
   };
@@ -686,6 +690,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
     setSessionStartTime('--:--');
     setContinuousWorkStartTime(null);
     setSnoozedAlert(false);
+    setIsTestAlertActive(false);
     localStorage.removeItem(LOCAL_STORAGE_KEYS.TIMER_STATE);
 
     showToast(`✅ 已精確結算 ${workMinutes} 分鐘工時（☕️ 休息時間：${breakMinutes} 分鐘）！`);
@@ -719,6 +724,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
     setSessionStartTime('--:--');
     setContinuousWorkStartTime(null);
     setSnoozedAlert(false);
+    setIsTestAlertActive(false);
 
     // 清除持久化計時狀態
     localStorage.removeItem(LOCAL_STORAGE_KEYS.TIMER_STATE);
@@ -859,6 +865,10 @@ export const TimerTab: React.FC<TimerTabProps> = ({
     : undefined;
 
   const handleTest2HourAlert = () => {
+    if (!isWorkingFocusRunning) {
+      showToast('⚠️ 僅在專注工作計時中才可測試 2 小時提醒');
+      return;
+    }
     setIsTestAlertActive(true);
     soundEffects.playTwoHourWaterChime();
     sendSystemNotification({
@@ -869,7 +879,6 @@ export const TimerTab: React.FC<TimerTabProps> = ({
     showToast('已經工作 2 小時，要休息啦！');
   };
 
-  const hasProject = projects.length > 0 && !!currentProject && !!selectedProjectId;
   const hasActiveSeconds = currentWorkSeconds > 0 || currentBreakSeconds > 0 || timerState !== 'idle';
 
   return (
@@ -1249,9 +1258,18 @@ export const TimerTab: React.FC<TimerTabProps> = ({
       <div className="w-full max-w-xl mx-auto pt-3 pb-1 flex justify-end pr-1">
         <button
           type="button"
+          disabled={!isWorkingFocusRunning}
           onClick={handleTest2HourAlert}
-          className="text-xs text-stone-400 dark:text-slate-500 underline underline-offset-2 hover:text-stone-600 dark:hover:text-slate-300 cursor-pointer transition-colors border-none bg-transparent p-0 select-none"
-          title="模擬連續工作滿 2 小時，觸發見字飲水提醒與休息彈窗"
+          className={`text-xs select-none transition-colors border-none bg-transparent p-0 ${
+            !isWorkingFocusRunning
+              ? 'text-stone-300 dark:text-slate-700 opacity-50 cursor-not-allowed no-underline'
+              : 'text-stone-400 dark:text-slate-500 underline underline-offset-2 hover:text-stone-600 dark:hover:text-slate-300 cursor-pointer'
+          }`}
+          title={
+            !isWorkingFocusRunning
+              ? '需在專案「專注工作計時中」才可測試 2 小時提醒'
+              : '模擬連續工作滿 2 小時，觸發見字飲水提醒與休息彈窗'
+          }
         >
           ⚡️ 測試 2 小時提醒
         </button>
