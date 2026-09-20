@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { motion } from 'motion/react';
 import {
   Clock,
   BarChart3,
@@ -503,11 +504,11 @@ function AppContent() {
               />
             </div>
             <div className="min-w-0">
-              <div className="flex items-center gap-1">
-                <h1 className="font-extrabold text-xs sm:text-base md:text-lg tracking-tight whitespace-nowrap">FreeLife Log</h1>
+              <div className="flex items-center gap-1.5">
+                <h1 className="font-extrabold text-base sm:text-xl md:text-2xl tracking-tight whitespace-nowrap">FreeLife Log</h1>
               </div>
               <p className="text-[10px] text-stone-500 dark:text-slate-400 truncate">
-                紀錄Freelancer的生活
+                紀錄 Freelancer 的生活
               </p>
             </div>
           </div>
@@ -529,11 +530,11 @@ function AppContent() {
             {/* Clear All Data: Subtle Danger Button */}
             <button
               onClick={() => setIsClearModalOpen(true)}
-              className="bg-red-50/70 border border-red-200/80 text-red-600 dark:bg-red-950/40 dark:border-red-900/60 dark:text-red-400 active:bg-red-100 dark:active:bg-red-900/60 hover:bg-red-100/70 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all flex items-center gap-1 cursor-pointer shrink-0 whitespace-nowrap select-none"
+              className="bg-red-50/70 border border-red-200/80 text-red-600 dark:bg-red-950/40 dark:border-red-900/60 dark:text-red-400 active:bg-red-100 dark:active:bg-red-900/60 hover:bg-red-100/70 p-2 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-medium transition-all flex items-center gap-1 cursor-pointer shrink-0 whitespace-nowrap select-none"
               title="清空所有紀錄與資料（含防呆確認）"
             >
-              <RotateCcw size={13} className="shrink-0" />
-              <span>重置</span>
+              <RotateCcw size={14} className="shrink-0" />
+              <span className="hidden sm:inline">重置</span>
             </button>
           </div>
         </div>
@@ -600,81 +601,104 @@ function AppContent() {
 
         {/* Tab 1: 核心計時 (Timer) */}
         <div className={activeTab === 'timer' ? 'block' : 'hidden'}>
-          <TimerTab
-            key={timerResetKey}
-            projects={projects}
-            sessions={sessions}
-            onSaveSession={handleSaveSession}
-            onNavigateTab={setActiveTab}
-            onOpenNewProjectModal={handleTriggerNewProject}
-            onUpdateProject={handleUpdateProject}
-            activeProjectId={activeProjectId}
-            setActiveProjectId={setActiveProjectId}
-            onRegisterTimerBridge={handleRegisterTimerBridge}
-            onRequestInterception={handleRequestInterception}
-            hourlyRateVisibilityMap={hourlyRateVisibilityMap}
-            onToggleShowHourlyRate={handleToggleShowHourlyRate}
-          />
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+          >
+            <TimerTab
+              key={timerResetKey}
+              projects={projects}
+              sessions={sessions}
+              onSaveSession={handleSaveSession}
+              onNavigateTab={setActiveTab}
+              onOpenNewProjectModal={handleTriggerNewProject}
+              onUpdateProject={handleUpdateProject}
+              activeProjectId={activeProjectId}
+              setActiveProjectId={setActiveProjectId}
+              onRegisterTimerBridge={handleRegisterTimerBridge}
+              onRequestInterception={handleRequestInterception}
+              hourlyRateVisibilityMap={hourlyRateVisibilityMap}
+              onToggleShowHourlyRate={handleToggleShowHourlyRate}
+            />
+          </motion.div>
         </div>
 
         {/* Tab 2: Project 總覽 (Overview) */}
         <div className={activeTab === 'calculator' ? 'block' : 'hidden'}>
-          <CalculatorTab
-            projects={projects}
-            sessions={sessions}
-            onDeleteSession={handleDeleteSession}
-            onUpdateSession={handleUpdateSession}
-            onDeleteProject={handleDeleteProject}
-            onDeleteProjects={handleDeleteProjects}
-            onMoveProjects={handleMoveProjects}
-            onUpdateProject={handleUpdateProject}
-            onNavigateTab={handleNavigateTab}
-            onOpenNewProjectModal={handleTriggerNewProject}
-            freelancerProfile={freelancerProfile}
-            activeProjectId={activeProjectId}
-            setActiveProjectId={setActiveProjectId}
-            viewProjectId={overviewProjectId}
-            onViewProjectChange={setOverviewProjectId}
-            hourlyRateVisibilityMap={hourlyRateVisibilityMap}
-            onToggleShowHourlyRate={handleToggleShowHourlyRate}
-            timerStatus={
-              timerBridge
-                ? {
-                    isRunning: timerBridge.isRunning,
-                    projectId: timerBridge.projectId,
-                    projectName: timerBridge.projectName,
-                    elapsedFormatted: timerBridge.elapsedFormatted,
-                  }
-                : undefined
-            }
-            onRequestSwitchProject={handleRequestSwitchProject}
-          />
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+          >
+            <CalculatorTab
+              projects={projects}
+              sessions={sessions}
+              onDeleteSession={handleDeleteSession}
+              onUpdateSession={handleUpdateSession}
+              onDeleteProject={handleDeleteProject}
+              onDeleteProjects={handleDeleteProjects}
+              onMoveProjects={handleMoveProjects}
+              onUpdateProject={handleUpdateProject}
+              onNavigateTab={handleNavigateTab}
+              onOpenNewProjectModal={handleTriggerNewProject}
+              freelancerProfile={freelancerProfile}
+              activeProjectId={activeProjectId}
+              setActiveProjectId={setActiveProjectId}
+              viewProjectId={overviewProjectId}
+              onViewProjectChange={setOverviewProjectId}
+              hourlyRateVisibilityMap={hourlyRateVisibilityMap}
+              onToggleShowHourlyRate={handleToggleShowHourlyRate}
+              timerStatus={
+                timerBridge
+                  ? {
+                      isRunning: timerBridge.isRunning,
+                      projectId: timerBridge.projectId,
+                      projectName: timerBridge.projectName,
+                      elapsedFormatted: timerBridge.elapsedFormatted,
+                    }
+                  : undefined
+              }
+              onRequestSwitchProject={handleRequestSwitchProject}
+            />
+          </motion.div>
         </div>
 
         {/* Tab 3: 補記工時與追加報價 (Manual Entry & Scope) */}
         <div className={activeTab === 'manual-entry' ? 'block' : 'hidden'}>
-          <ManualEntryTab
-            projects={projects}
-            sessions={sessions}
-            onSaveSession={handleSaveSession}
-            onNavigateTab={handleNavigateTab}
-            onOpenNewProjectModal={handleTriggerNewProject}
-            onUpdateProject={handleUpdateProject}
-            activeProjectId={activeProjectId}
-            setActiveProjectId={setActiveProjectId}
-            viewProjectId={manualEntryProjectId}
-            onViewProjectChange={setManualEntryProjectId}
-            timerStatus={
-              timerBridge
-                ? {
-                    isRunning: timerBridge.isRunning,
-                    projectId: timerBridge.projectId,
-                    projectName: timerBridge.projectName,
-                    elapsedFormatted: timerBridge.elapsedFormatted,
-                  }
-                : undefined
-            }
-          />
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+          >
+            <ManualEntryTab
+              projects={projects}
+              sessions={sessions}
+              onSaveSession={handleSaveSession}
+              onNavigateTab={handleNavigateTab}
+              onOpenNewProjectModal={handleTriggerNewProject}
+              onUpdateProject={handleUpdateProject}
+              activeProjectId={activeProjectId}
+              setActiveProjectId={setActiveProjectId}
+              viewProjectId={manualEntryProjectId}
+              onViewProjectChange={setManualEntryProjectId}
+              timerStatus={
+                timerBridge
+                  ? {
+                      isRunning: timerBridge.isRunning,
+                      projectId: timerBridge.projectId,
+                      projectName: timerBridge.projectName,
+                      elapsedFormatted: timerBridge.elapsedFormatted,
+                    }
+                  : undefined
+              }
+            />
+          </motion.div>
+        </div>
+
+        {/* Creator Footer positioned right above the floating bottom nav */}
+        <div className="pt-6 pb-20 text-center text-xs text-slate-400 dark:text-slate-500 tracking-wide select-none">
+          Created by Kyra Chan
         </div>
       </main>
 
@@ -713,44 +737,37 @@ function AppContent() {
         onDiscardAndProceed={handleInterceptionDiscard}
       />
 
-      {/* Creator Footer */}
-      <footer className={`py-6 pb-28 mt-6 text-center text-xs border-t transition-colors ${
-        isWarm ? 'border-stone-200/60 text-stone-400' : 'border-slate-800/60 text-slate-500'
-      }`}>
-        <p className="tracking-wide font-normal">
-          Created by <span className="font-medium text-stone-500 dark:text-slate-400">Kyra Chan</span>
-        </p>
-      </footer>
-
-      {/* Fixed Bottom Navigation Bar */}
-      <div className={`fixed bottom-0 left-0 right-0 z-50 border-t backdrop-blur-md transition-colors px-2 py-1.5 shadow-lg ${
-        isWarm ? 'bg-white/95 border-stone-200 text-stone-800' : 'bg-slate-900/95 border-slate-800 text-slate-100'
-      }`}>
-        <nav className="max-w-md mx-auto grid grid-cols-3 gap-1">
-          {[
-            { id: 'timer', label: '工作計時', icon: Clock },
-            { id: 'calculator', label: 'Project總覽', icon: BarChart3 },
-            { id: 'manual-entry', label: '補記工時', icon: Edit3 },
-          ].map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => handleNavigateTab(item.id)}
-                className={`flex flex-col items-center justify-center py-1.5 px-2 rounded-xl transition-all cursor-pointer ${
-                  isActive
-                    ? 'text-emerald-600 dark:text-emerald-400 font-extrabold bg-emerald-50/80 dark:bg-emerald-950/40'
-                    : 'text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300 font-medium'
-                }`}
-              >
-                <Icon size={20} className={isActive ? 'text-emerald-600 dark:text-emerald-400' : ''} />
-                <span className="text-[11px] mt-0.5 tracking-tight">{item.label}</span>
-              </button>
-            );
-          })}
-        </nav>
+      {/* Fixed Floating Bottom Navigation Bar (Inspired by image.png) */}
+      <div className="fixed bottom-4 left-4 right-4 z-50 max-w-md mx-auto">
+        <div className={`backdrop-blur-md transition-colors px-3 py-2 shadow-2xl rounded-2xl sm:rounded-full border ${
+          isWarm ? 'bg-white/95 border-stone-200/90 text-stone-800 shadow-stone-950/15' : 'bg-slate-900/95 border-slate-800 text-slate-100 shadow-black/50'
+        }`}>
+          <nav className="grid grid-cols-3 gap-1.5">
+            {[
+              { id: 'timer', label: '工作計時', icon: Clock },
+              { id: 'calculator', label: 'Project總覽', icon: BarChart3 },
+              { id: 'manual-entry', label: '補記工時', icon: Edit3 },
+            ].map((item) => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => handleNavigateTab(item.id)}
+                  className={`flex flex-col items-center justify-center py-2.5 px-3 rounded-2xl sm:rounded-full transition-all cursor-pointer ${
+                    isActive
+                      ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-semibold shadow-2xs'
+                      : 'bg-transparent text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 font-medium'
+                  }`}
+                >
+                  <Icon size={20} className={isActive ? 'text-slate-900 dark:text-slate-100' : 'text-slate-400 dark:text-slate-500'} />
+                  <span className="text-[11px] mt-1 tracking-tight">{item.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+        </div>
       </div>
     </div>
   );

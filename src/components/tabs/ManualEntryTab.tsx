@@ -566,14 +566,14 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
       {/* 1. MANUAL ENTRY FORM */}
       {/* ============================================================ */}
       <div
-        className={`rounded-3xl p-6 sm:p-8 border transition-all ${
+        className={`rounded-3xl p-6 sm:p-8 border transition-all duration-200 ${
           isWarm ? 'bg-white border-stone-200 shadow-sm' : 'bg-slate-900 border-slate-800'
         }`}
         style={{
-          borderLeftWidth: currentProject ? '4px' : '1px',
-          borderLeftColor: currentProject
+          borderLeftWidth: isFormExpanded && currentProject ? '4px' : '1px',
+          borderLeftColor: isFormExpanded && currentProject
             ? clientColor
-            : (isWarm ? '#E6E4E2' : '#1E293B'),
+            : (isWarm ? '#e7e5e4' : '#1e293b'),
         }}
       >
             {/* Clean Header */}

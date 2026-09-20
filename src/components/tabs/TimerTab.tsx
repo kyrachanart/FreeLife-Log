@@ -20,6 +20,7 @@ import {
   FolderMinus,
   Square,
   Sparkles,
+  Zap,
 } from 'lucide-react';
 import { Project, TimeSession, TimerBridge } from '../../types';
 import { useTheme } from '../../ThemeContext';
@@ -1039,9 +1040,9 @@ export const TimerTab: React.FC<TimerTabProps> = ({
         {/* Main Central Card with Subtle Background Glow & Status Badge */}
         <div
           id="timer-card"
-          className={`border-2 transition-all relative overflow-hidden flex flex-col justify-between p-6 rounded-3xl ${
+          className={`transition-all relative overflow-hidden flex flex-col justify-between p-6 rounded-3xl ${
             timerState === 'resting'
-              ? 'border-2 border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-900 shadow-md'
+              ? 'border-2 border-amber-400 dark:border-amber-600 bg-white dark:bg-slate-900 shadow-md'
               : 'border-2 border-emerald-500 bg-white dark:bg-slate-900 shadow-md'
           }`}
         >
@@ -1092,7 +1093,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
 
           {/* 第 2 層 (核心計時) */}
           <div className="my-3 text-center">
-            <div className={`font-mono text-6xl sm:text-7xl font-bold my-4 select-none tracking-tight ${
+            <div className={`font-mono text-6xl sm:text-8xl font-black my-6 select-none tracking-tight leading-none ${
               timerState === 'resting'
                 ? 'text-amber-600 dark:text-amber-400'
                 : 'text-emerald-600'
@@ -1225,6 +1226,18 @@ export const TimerTab: React.FC<TimerTabProps> = ({
             })()}
           </div>
         </div>
+      </div>
+
+      {/* Test 2-Hour Alert Button (Subtle Fine Gray Text with Underline at Bottom Right) */}
+      <div className="w-full max-w-xl mx-auto pt-3 pb-1 flex justify-end pr-1">
+        <button
+          type="button"
+          onClick={handleTest2HourAlert}
+          className="text-xs text-stone-400 dark:text-slate-500 underline underline-offset-2 hover:text-stone-600 dark:hover:text-slate-300 cursor-pointer transition-colors border-none bg-transparent p-0 select-none"
+          title="模擬連續工作滿 2 小時，觸發見字飲水提醒與休息彈窗"
+        >
+          ⚡️ 測試 2 小時提醒
+        </button>
       </div>
 
       {/* Reset Confirmation Modal */}
