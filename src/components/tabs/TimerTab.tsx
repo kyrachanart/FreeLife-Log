@@ -182,6 +182,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastType, setToastType] = useState<'focus' | 'break'>('focus');
   const [snoozedAlert, setSnoozedAlert] = useState(false);
+  const [isTestAlertActive, setIsTestAlertActive] = useState(false);
   const hasTriggered2HourAlertRef = useRef<boolean>(false);
 
   // Keep selectedProjectId synchronized if project list changes
@@ -287,10 +288,11 @@ export const TimerTab: React.FC<TimerTabProps> = ({
       console.log("2-Hour Alert Triggered!");
       soundEffects.playTwoHourWaterChime();
       sendSystemNotification({
-        title: '☕ FreeLife Log 專注提醒',
-        body: '您已連續工作滿 2 小時！是時候放下工作喝杯水、拉拉筋，讓身體和大腦好好休息一下。',
+        title: 'FreeLife Log',
+        body: '已經工作 2 小時，要休息啦！',
         tag: '2hour-focus-break',
       });
+      setSnoozedAlert(false);
     }
   }, [timerState, continuousWorkStartTime, tick]);
 
@@ -555,7 +557,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
   }, [timerState, continuousWorkStartTime, tick]);
 
   const isTwoHourAlertActive =
-    timerState === 'working' && continuousSeconds >= 7200 && !snoozedAlert;
+    isTestAlertActive || (timerState === 'working' && continuousSeconds >= 7200 && !snoozedAlert);
 
   // CONTROLLER ACTIONS
   // 1. 開工 (Start / Resume)
@@ -851,23 +853,14 @@ export const TimerTab: React.FC<TimerTabProps> = ({
     : undefined;
 
   const handleTest2HourAlert = () => {
-    const simulatedStartTime = Date.now() - 7205 * 1000;
-    setContinuousWorkStartTime(simulatedStartTime);
-    setTimerState('working');
-    if (workStartedAt === null) {
-      setWorkStartedAt(simulatedStartTime);
-    }
-    setSnoozedAlert(false);
-    hasTriggered2HourAlertRef.current = true;
-    console.log("2-Hour Alert Triggered!");
+    setIsTestAlertActive(true);
     soundEffects.playTwoHourWaterChime();
     sendSystemNotification({
-      title: '☕ FreeLife Log 專注提醒 (測試)',
-      body: '您已連續工作滿 2 小時！是時候放下工作喝杯水、拉拉筋，讓身體和大腦好好休息一下。',
+      title: 'FreeLife Log',
+      body: '已經工作 2 小時，要休息啦！',
       tag: '2hour-focus-break-test',
     });
-    showToast('💧 已模擬觸發 2 小時見字飲水提醒與音效！');
-    setTick((t) => (t + 1) % 1000000);
+    showToast('已經工作 2 小時，要休息啦！');
   };
 
   const hasProject = projects.length > 0 && !!currentProject;
@@ -899,27 +892,22 @@ export const TimerTab: React.FC<TimerTabProps> = ({
                 : 'bg-slate-900 border-amber-600/50 text-slate-100 shadow-black/60'
             }`}
           >
-            <div className="flex items-start gap-4">
-              <div className="p-3.5 rounded-2xl bg-amber-500 text-white shadow-lg shadow-amber-500/30 shrink-0">
-                <Droplets size={28} />
-              </div>
-              <div className="space-y-1">
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300">
-                  <span>☕ 專注健康提醒</span>
-                </div>
-                <h3 className="font-black text-lg sm:text-xl tracking-tight text-stone-900 dark:text-slate-100">
-                  💧 已經工作 2 小時，見字飲水，要休息啦！
-                </h3>
-                <p className="text-xs text-stone-600 dark:text-slate-300 leading-relaxed pt-1">
-                  長時間連續專注容易導致視覺與精神疲勞。適度暫停休息完全不計入工時，能幫助維持高質量產出。
-                </p>
-              </div>
+            <div className="space-y-2">
+              <h3 className="font-black text-lg sm:text-xl tracking-tight text-stone-900 dark:text-slate-100">
+                已經工作 2 小時，要休息啦！
+              </h3>
+              <p className="text-xs text-stone-600 dark:text-slate-300 leading-relaxed pt-1">
+                長時間連續專注容易導致視覺與精神疲勞。適度暫停休息完全不計入工時，能幫助維持高質量產出。
+              </p>
             </div>
 
             <div className="pt-2 flex flex-col sm:flex-row items-center gap-2.5 w-full">
               <button
                 type="button"
-                onClick={() => setSnoozedAlert(true)}
+                onClick={() => {
+                  setSnoozedAlert(true);
+                  setIsTestAlertActive(false);
+                }}
                 className={`w-full sm:w-1/2 py-3 px-4 rounded-2xl text-xs font-bold border transition-colors cursor-pointer text-center ${
                   isWarm
                     ? 'border-stone-200 hover:bg-stone-100 text-stone-600'
@@ -932,6 +920,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
                 type="button"
                 onClick={() => {
                   setSnoozedAlert(true);
+                  setIsTestAlertActive(false);
                   handlePause();
                 }}
                 className="w-full sm:w-1/2 py-3 px-4 rounded-2xl text-xs font-extrabold bg-amber-600 hover:bg-amber-700 text-white shadow-md shadow-amber-600/25 flex items-center justify-center gap-1.5 transition-all cursor-pointer hover:scale-102 active:scale-98"

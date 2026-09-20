@@ -129,6 +129,93 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
   };
 
   const [workDate, setWorkDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
+
+  // Year, Month, Day helper calculations for dropdown selectors
+  const [yearVal, monthVal, dayVal] = useMemo(() => {
+    if (!workDate) {
+      const d = new Date();
+      return [d.getFullYear(), d.getMonth() + 1, d.getDate()];
+    }
+    const parts = workDate.split('-');
+    return [
+      parseInt(parts[0], 10) || new Date().getFullYear(),
+      parseInt(parts[1], 10) || (new Date().getMonth() + 1),
+      parseInt(parts[2], 10) || new Date().getDate()
+    ];
+  }, [workDate]);
+
+  const todayObj = useMemo(() => new Date(), []);
+  const currYear = todayObj.getFullYear();
+  const currMonth = todayObj.getMonth() + 1;
+  const currDay = todayObj.getDate();
+
+  // Year dropdown options (Current Year down to 2020)
+  const yearsOptions = useMemo(() => {
+    const arr = [];
+    for (let y = currYear; y >= 2020; y--) {
+      arr.push(y);
+    }
+    return arr;
+  }, [currYear]);
+
+  // Month dropdown options based on selected year
+  const monthsOptions = useMemo(() => {
+    const arr = [];
+    const limit = (yearVal === currYear) ? currMonth : 12;
+    for (let m = 1; m <= limit; m++) {
+      arr.push(m);
+    }
+    return arr;
+  }, [yearVal, currYear, currMonth]);
+
+  // Day dropdown options based on selected year and month
+  const daysOptions = useMemo(() => {
+    const arr = [];
+    const maxDays = new Date(yearVal, monthVal, 0).getDate();
+    const limit = (yearVal === currYear && monthVal === currMonth) ? currDay : maxDays;
+    for (let d = 1; d <= limit; d++) {
+      arr.push(d);
+    }
+    return arr;
+  }, [yearVal, monthVal, currYear, currMonth, currDay]);
+
+  const handleYearChange = (yStr: string) => {
+    const y = parseInt(yStr, 10);
+    let newM = monthVal;
+    if (y === currYear && newM > currMonth) {
+      newM = currMonth;
+    }
+    const maxDays = new Date(y, newM, 0).getDate();
+    let newD = dayVal;
+    if (newD > maxDays) {
+      newD = maxDays;
+    }
+    if (y === currYear && newM === currMonth && newD > currDay) {
+      newD = currDay;
+    }
+    const formattedDate = `${y}-${String(newM).padStart(2, '0')}-${String(newD).padStart(2, '0')}`;
+    setWorkDate(formattedDate);
+  };
+
+  const handleMonthChange = (mStr: string) => {
+    const m = parseInt(mStr, 10);
+    const maxDays = new Date(yearVal, m, 0).getDate();
+    let newD = dayVal;
+    if (newD > maxDays) {
+      newD = maxDays;
+    }
+    if (yearVal === currYear && m === currMonth && newD > currDay) {
+      newD = currDay;
+    }
+    const formattedDate = `${yearVal}-${String(m).padStart(2, '0')}-${String(newD).padStart(2, '0')}`;
+    setWorkDate(formattedDate);
+  };
+
+  const handleDayChange = (dStr: string) => {
+    const d = parseInt(dStr, 10);
+    const formattedDate = `${yearVal}-${String(monthVal).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    setWorkDate(formattedDate);
+  };
   
   // 24-hour Time Interval States (unprefilled by default)
   const [isTimeRangeExpanded, setIsTimeRangeExpanded] = useState<boolean>(false);
@@ -414,6 +501,12 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
 
     if (!currentProject) {
       showToast('⚠️ 請先選擇或建立 Project！');
+      return;
+    }
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (workDate && workDate > todayStr) {
+      showToast('⚠️ 手動補記僅限過去或今天的工時紀錄');
       return;
     }
 
@@ -790,17 +883,68 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
               <label className="block text-xs font-bold text-stone-700 dark:text-slate-300 mb-1.5">
                 2. 工作日期 <span className="text-rose-500">*</span>
               </label>
-              <input
-                type="date"
-                value={workDate}
-                onChange={(e) => setWorkDate(e.target.value)}
-                className={`w-full text-xs sm:text-sm font-bold rounded-xl px-3.5 py-2.5 border outline-none transition-colors ${
-                  isWarm
-                    ? 'bg-stone-50 border-stone-300 text-stone-900 focus:bg-white focus:ring-2 focus:ring-emerald-500'
-                    : 'bg-slate-950 border-slate-700 text-slate-100 focus:ring-2 focus:ring-emerald-500'
-                }`}
-                required
-              />
+              
+              <div className="grid grid-cols-3 gap-2">
+                {/* Year Select */}
+                <div className="relative">
+                  <select
+                    value={yearVal}
+                    onChange={(e) => handleYearChange(e.target.value)}
+                    className={`w-full text-xs sm:text-sm font-bold rounded-xl px-3.5 py-2.5 border outline-none appearance-none transition-colors cursor-pointer ${
+                      isWarm
+                        ? 'bg-stone-50 border-stone-300 text-stone-900 focus:bg-white focus:ring-2 focus:ring-emerald-500'
+                        : 'bg-slate-950 border-slate-700 text-slate-100 focus:ring-2 focus:ring-emerald-500'
+                    }`}
+                  >
+                    {yearsOptions.map((y) => (
+                      <option key={y} value={y}>{y} 年</option>
+                    ))}
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-stone-400">
+                    <span className="text-[10px]">⌵</span>
+                  </div>
+                </div>
+
+                {/* Month Select */}
+                <div className="relative">
+                  <select
+                    value={monthVal}
+                    onChange={(e) => handleMonthChange(e.target.value)}
+                    className={`w-full text-xs sm:text-sm font-bold rounded-xl px-3.5 py-2.5 border outline-none appearance-none transition-colors cursor-pointer ${
+                      isWarm
+                        ? 'bg-stone-50 border-stone-300 text-stone-900 focus:bg-white focus:ring-2 focus:ring-emerald-500'
+                        : 'bg-slate-950 border-slate-700 text-slate-100 focus:ring-2 focus:ring-emerald-500'
+                    }`}
+                  >
+                    {monthsOptions.map((m) => (
+                      <option key={m} value={m}>{m} 月</option>
+                    ))}
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-stone-400">
+                    <span className="text-[10px]">⌵</span>
+                  </div>
+                </div>
+
+                {/* Day Select */}
+                <div className="relative">
+                  <select
+                    value={dayVal}
+                    onChange={(e) => handleDayChange(e.target.value)}
+                    className={`w-full text-xs sm:text-sm font-bold rounded-xl px-3.5 py-2.5 border outline-none appearance-none transition-colors cursor-pointer ${
+                      isWarm
+                        ? 'bg-stone-50 border-stone-300 text-stone-900 focus:bg-white focus:ring-2 focus:ring-emerald-500'
+                        : 'bg-slate-950 border-slate-700 text-slate-100 focus:ring-2 focus:ring-emerald-500'
+                    }`}
+                  >
+                    {daysOptions.map((d) => (
+                      <option key={d} value={d}>{d} 日</option>
+                    ))}
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-stone-400">
+                    <span className="text-[10px]">⌵</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -821,7 +965,7 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
                 )}
               </div>
               <div className="flex items-center gap-1 text-[11px] text-stone-400">
-                <span>{isTimeRangeExpanded ? '收合選項' : '展開選擇起訖時間'}</span>
+                <span>{isTimeRangeExpanded ? '收合' : '展開'}</span>
                 {isTimeRangeExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
               </div>
             </button>
@@ -888,7 +1032,7 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
                     value={workHours}
                     onFocus={(e) => e.target.select()}
                     onChange={(e) => handleWorkHoursChange(e.target.value === '' ? '' : parseInt(e.target.value) || 0)}
-                    className={`w-full text-xs sm:text-sm font-black font-mono rounded-xl px-3.5 py-2.5 border outline-none text-center ${
+                    className={`w-full text-xs sm:text-sm font-black font-mono rounded-xl pl-3.5 pr-16 py-2.5 border outline-none text-left [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
                       isWarm
                         ? 'bg-stone-50 border-stone-300 text-stone-900 focus:bg-white focus:ring-2 focus:ring-emerald-500'
                         : 'bg-slate-950 border-slate-700 text-slate-100 focus:ring-2 focus:ring-emerald-500'
@@ -906,7 +1050,7 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
                     value={workMinutes}
                     onFocus={(e) => e.target.select()}
                     onChange={(e) => handleWorkMinutesChange(e.target.value === '' ? '' : parseInt(e.target.value) || 0)}
-                    className={`w-full text-xs sm:text-sm font-black font-mono rounded-xl px-3.5 py-2.5 border outline-none text-center ${
+                    className={`w-full text-xs sm:text-sm font-black font-mono rounded-xl pl-3.5 pr-16 py-2.5 border outline-none text-left [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
                       isWarm
                         ? 'bg-stone-50 border-stone-300 text-stone-900 focus:bg-white focus:ring-2 focus:ring-emerald-500'
                         : 'bg-slate-950 border-slate-700 text-slate-100 focus:ring-2 focus:ring-emerald-500'
@@ -932,7 +1076,7 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
                   value={breakMinutes}
                   onFocus={(e) => e.target.select()}
                   onChange={(e) => handleBreakMinutesChange(e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value) || 0))}
-                  className={`w-full text-xs sm:text-sm font-black font-mono rounded-xl px-3.5 py-2.5 border outline-none text-center ${
+                  className={`w-full text-xs sm:text-sm font-black font-mono rounded-xl pl-3.5 pr-16 py-2.5 border outline-none text-left [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
                     isWarm
                       ? 'bg-stone-50 border-stone-300 text-stone-900 focus:bg-white focus:ring-2 focus:ring-emerald-500'
                       : 'bg-slate-950 border-slate-700 text-slate-100 focus:ring-2 focus:ring-emerald-500'

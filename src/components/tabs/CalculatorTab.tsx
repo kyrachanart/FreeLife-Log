@@ -341,10 +341,16 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  // Filter sessions for the current project
+  // Filter and sort sessions for the current project (Newest First by date and startTime)
   const projectSessions = useMemo(() => {
     if (!currentProject) return [];
-    return sessions.filter((s) => s.projectId === currentProject.id);
+    return sessions
+      .filter((s) => s.projectId === currentProject.id)
+      .sort((a, b) => {
+        const datetimeA = `${a.date}T${a.startTime || '00:00'}`;
+        const datetimeB = `${b.date}T${b.startTime || '00:00'}`;
+        return datetimeB.localeCompare(datetimeA);
+      });
   }, [sessions, currentProject]);
 
   // Group projects by clientName for organized select dropdown
