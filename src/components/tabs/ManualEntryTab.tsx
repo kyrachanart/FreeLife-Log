@@ -575,17 +575,19 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
 
   // Scope Creep calculations (Empty State Guard for usedHours < 1)
   const targetScopeProject = projects.find((p) => p.id === scopeCreepProjectId) || currentProject || projects[0];
+  const isNoProjectSelected = !targetScopeProject || !scopeCreepProjectId;
   const totalBudget = targetScopeProject?.totalContractAmount || 0;
   const extraHours = scopeCreepHours;
 
   // Calculate current logged minutes & hours for this target project
   const scopeProjectSessions = useMemo(() => {
+    if (isNoProjectSelected) return [];
     return sessions.filter((s) => s.projectId === targetScopeProject?.id);
-  }, [sessions, targetScopeProject?.id]);
+  }, [sessions, targetScopeProject?.id, isNoProjectSelected]);
 
   const scopeCurrentWorkedMinutes = scopeProjectSessions.reduce((sum, s) => sum + s.workDurationMinutes, 0);
-  const usedHours = scopeCurrentWorkedMinutes / 60; // Exact hours e.g. 0.3h
-  const isUnderOneHour = usedHours < 1;
+  const usedHours = isNoProjectSelected ? 0 : scopeCurrentWorkedMinutes / 60; // Exact hours e.g. 0.3h
+  const isUnderOneHour = isNoProjectSelected || usedHours < 1;
 
   // 只有當 usedHours >= 1 時，才啟動時薪計算
   // 1. 當前時薪 (currentHourlyRate): totalBudget / usedHours
@@ -635,7 +637,7 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
   };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="space-y-6 max-w-4xl mx-auto pb-28">
       {/* Toast Notification */}
       {toastMessage && (
         <div
@@ -1212,21 +1214,30 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
                       : 'bg-slate-900 border-slate-700 text-slate-100'
                   }`}
                 >
-                  {projects.map((p) => (
-                    <option key={p.id} value={p.id} className="truncate">
-                      {p.name} [{p.clientName}] · HK$ {p.totalContractAmount.toLocaleString()}
-                    </option>
-                  ))}
+                  {projects.length === 0 ? (
+                    <option value="">請先選擇或建立 Project</option>
+                  ) : (
+                    <>
+                      {(!scopeCreepProjectId || !projects.some(p => p.id === scopeCreepProjectId)) && (
+                        <option value="">請先選擇或建立 Project</option>
+                      )}
+                      {projects.map((p) => (
+                        <option key={p.id} value={p.id} className="truncate">
+                          {p.name} [{p.clientName}] · HK$ {p.totalContractAmount.toLocaleString()}
+                        </option>
+                      ))}
+                    </>
+                  )}
                 </select>
               </div>
-
+ 
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="text-xs font-bold text-stone-700 dark:text-slate-300">
                     預計額外改稿 / 追加工時：
                   </label>
                   <span className="font-mono font-semibold text-sm text-slate-800 dark:text-slate-200">
-                    +{scopeCreepHours} 小時
+                    {isNoProjectSelected ? '+--' : `+${scopeCreepHours}`} 小時
                   </span>
                 </div>
                 <input
@@ -1234,9 +1245,12 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
                   min="1"
                   max="30"
                   step="1"
-                  value={scopeCreepHours}
+                  value={isNoProjectSelected ? 1 : scopeCreepHours}
+                  disabled={isNoProjectSelected}
                   onChange={(e) => setScopeCreepHours(parseInt(e.target.value) || 1)}
-                  className="w-full accent-slate-800 dark:accent-slate-200 cursor-pointer"
+                  className={`w-full accent-slate-800 dark:accent-slate-200 cursor-pointer transition-all ${
+                    isNoProjectSelected ? 'opacity-40 cursor-not-allowed' : ''
+                  }`}
                 />
               </div>
             </div>
