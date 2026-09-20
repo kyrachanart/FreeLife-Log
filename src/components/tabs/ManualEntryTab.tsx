@@ -19,6 +19,7 @@ import { Project, TimeSession } from '../../types';
 import { useTheme } from '../../ThemeContext';
 import { ProjectSelectDropdown } from '../common/ProjectSelectDropdown';
 import { getClientColor } from '../../utils/clientColors';
+import { formatCurrency, formatHourlyRate } from '../../utils/currency';
 
 interface ManualEntryTabProps {
   projects: Project[];
@@ -96,14 +97,20 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
 
   // --- Form States for Manual Entry ---
   const [selectedProjectId, setSelectedProjectId] = useState<string>(() => {
-    if (viewProjectId && projects.some((p) => p.id === viewProjectId)) {
-      return viewProjectId;
-    }
     if (activeProjectId && projects.some((p) => p.id === activeProjectId)) {
       return activeProjectId;
     }
+    if (viewProjectId && projects.some((p) => p.id === viewProjectId)) {
+      return viewProjectId;
+    }
     return projects[0]?.id || '';
   });
+
+  useEffect(() => {
+    if (activeProjectId && projects.some((p) => p.id === activeProjectId)) {
+      setSelectedProjectId(activeProjectId);
+    }
+  }, [activeProjectId, projects]);
 
   useEffect(() => {
     if (viewProjectId && projects.some((p) => p.id === viewProjectId)) {
@@ -115,6 +122,9 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
     setSelectedProjectId(id);
     if (onViewProjectChange) {
       onViewProjectChange(id);
+    }
+    if (setActiveProjectId) {
+      setActiveProjectId(id);
     }
   };
 
@@ -379,6 +389,13 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
     onSaveSession(newSession);
     setTaskNote('');
 
+    if (setActiveProjectId) {
+      setActiveProjectId(newSession.projectId);
+    }
+    if (onViewProjectChange) {
+      onViewProjectChange(newSession.projectId);
+    }
+
     // Highlight and auto-navigate to Calculator overview tab
     try {
       localStorage.setItem('freelife_highlight_session_id', newSession.id);
@@ -444,6 +461,13 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
     // Clear note after submit
     setTaskNote('');
 
+    if (setActiveProjectId) {
+      setActiveProjectId(newSession.projectId);
+    }
+    if (onViewProjectChange) {
+      onViewProjectChange(newSession.projectId);
+    }
+
     // Highlight and auto-navigate to Calculator overview tab
     try {
       localStorage.setItem('freelife_highlight_session_id', newSession.id);
@@ -489,15 +513,15 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
   const suggestedQuote = !isUnderOneHour ? Math.round(currentHourlyRate * extraHours) : 0;
 
   const currentHourlyRateFormatted = !isUnderOneHour
-    ? `HK$ ${currentHourlyRate.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} / h`
+    ? formatHourlyRate(currentHourlyRate)
     : '-- / h';
 
   const newHourlyRateFormatted = !isUnderOneHour
-    ? `HK$ ${newHourlyRate.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} / h`
+    ? formatHourlyRate(newHourlyRate)
     : '-- / h';
 
   const rateDropFormatted = !isUnderOneHour
-    ? `HK$ ${rateDrop.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}`
+    ? formatCurrency(rateDrop)
     : '--';
 
   const percentageDropFormatted = !isUnderOneHour
@@ -508,7 +532,7 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
     const clientName = targetScopeProject?.clientName || 'Client';
     const projName = targetScopeProject?.name || 'Project';
     const quoteText = !isUnderOneHour && suggestedQuote > 0
-      ? `追加報價 HK$ ${suggestedQuote.toLocaleString()}`
+      ? `追加報價 ${formatCurrency(suggestedQuote)}`
       : `追加報價（約 ${extraHours} 小時）`;
     const text = `Hi ${clientName}，收到你關於「${projName}」嘅改稿需求！因為今次修改範圍超出咗原定合約內容，估計需要額外加多 ${extraHours} 小時處理。為維持項目進度與品質，呢部分會${quoteText}。如果冇問題我哋就安排開工，辛苦晒！`;
     navigator.clipboard.writeText(text);
@@ -563,7 +587,7 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
                     手動補記工時
                   </h2>
                   <p className="text-xs text-stone-500 dark:text-slate-400 mt-0.5">
-                    忘記開計時器？在此手動輸入，即時寫入全域 Timesheet 並同步更新總工時與預算進度
+                    忘記開計時器？即時在此補記時間
                   </p>
                 </div>
               </div>
@@ -625,11 +649,7 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
             ) : (
               <div className="space-y-6 animate-in fade-in-50 duration-200">
                 {/* Header Collapse Bar */}
-                <div className="flex items-center justify-between pb-3 border-b border-stone-100 dark:border-slate-800">
-                  <span className="text-xs font-extrabold text-stone-600 dark:text-slate-300 flex items-center gap-1.5">
-                    {entryMode === 'quick' ? <Zap size={14} className="text-amber-500" /> : <FileText size={14} className="text-emerald-500" />}
-                    <span>正在填寫：{entryMode === 'quick' ? '一鍵快捷加時' : '詳細紀錄表單'}</span>
-                  </span>
+                <div className="flex items-center justify-end pb-3 border-b border-stone-100 dark:border-slate-800">
                   <button
                     type="button"
                     onClick={() => setIsFormExpanded(false)}
@@ -1002,36 +1022,36 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
       >
         <button
           onClick={() => setIsScopeCreepExpanded(!isScopeCreepExpanded)}
-          className={`w-full p-5 sm:p-6 flex items-center justify-between text-left transition-colors cursor-pointer ${
+          className={`w-full p-4 sm:p-5 flex items-center justify-between text-left transition-colors cursor-pointer ${
             isWarm ? 'hover:bg-stone-50/80' : 'hover:bg-slate-800/50'
           }`}
         >
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-2xl bg-amber-500 text-white shadow-sm">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div className="p-2.5 rounded-xl bg-slate-800 text-white shadow-xs shrink-0">
               <Clock size={18} />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-extrabold text-base text-stone-900 dark:text-slate-100">
-                  Client 臨時追加改稿點算？
+            <div className="flex flex-col min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <h3 className="font-extrabold text-sm sm:text-base text-stone-900 dark:text-slate-100 whitespace-nowrap">
+                  Client 臨時追加修改？
                 </h3>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                  改稿報價神器
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 shrink-0 whitespace-nowrap">
+                  報價神器
                 </span>
               </div>
               <p className="text-xs text-stone-500 dark:text-slate-400 mt-0.5">
-                即時計算免費改稿會令你每小時實質少賺幾多，並一鍵生成 WhatsApp 內容追加報價，企硬唔白做。
+                即時計算實質少賺幾多，拒絕免費OT
               </p>
             </div>
           </div>
 
-          <div className="p-2 rounded-xl border border-stone-200 dark:border-slate-700 text-stone-500">
-            {isScopeCreepExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+          <div className="p-1.5 rounded-xl border border-stone-200 dark:border-slate-700 text-stone-500 shrink-0 ml-2">
+            {isScopeCreepExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           </div>
         </button>
 
         {isScopeCreepExpanded && (
-          <div className="p-6 sm:p-8 border-t border-stone-100 dark:border-slate-800 space-y-6 bg-stone-50/40 dark:bg-slate-950/30">
+          <div className="p-5 sm:p-7 space-y-6 bg-stone-50/40 dark:bg-slate-950/30">
             {/* Scope Creep Project Selection & Sliders */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               <div>
@@ -1061,7 +1081,7 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
                   <label className="text-xs font-bold text-stone-700 dark:text-slate-300">
                     預計額外改稿 / 追加工時：
                   </label>
-                  <span className="font-mono font-black text-sm text-amber-600">
+                  <span className="font-mono font-semibold text-sm text-slate-800 dark:text-slate-200">
                     +{scopeCreepHours} 小時
                   </span>
                 </div>
@@ -1072,7 +1092,7 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
                   step="1"
                   value={scopeCreepHours}
                   onChange={(e) => setScopeCreepHours(parseInt(e.target.value) || 1)}
-                  className="w-full accent-amber-500 cursor-pointer"
+                  className="w-full accent-slate-800 dark:accent-slate-200 cursor-pointer"
                 />
               </div>
             </div>
@@ -1128,7 +1148,7 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
                     建議追加報價
                   </span>
                   <div className="font-mono text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400">
-                    {isUnderOneHour ? '--' : `HK$ ${suggestedQuote.toLocaleString()}`}
+                    {isUnderOneHour ? '--' : formatCurrency(suggestedQuote)}
                   </div>
                 </div>
                 <div className="text-[11px] text-emerald-700 dark:text-emerald-300 font-bold mt-2">
@@ -1137,7 +1157,7 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
                       請直接按基本時薪自行估價
                     </span>
                   ) : (
-                    <span>💡 建議追加報價 HK$ {suggestedQuote.toLocaleString()} 以維持目前 HK$ {Math.round(currentHourlyRate)}/h 的時薪水準</span>
+                    <span>💡 建議追加報價 {formatCurrency(suggestedQuote)} 以維持目前 {formatHourlyRate(currentHourlyRate)} 的時薪水準</span>
                   )}
                 </div>
               </div>
@@ -1152,7 +1172,7 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
                 className={`px-5 py-3 rounded-2xl text-xs font-black flex items-center gap-2 transition-all ${
                   isUnderOneHour
                     ? 'bg-[#E5E7EB] dark:bg-slate-800 text-[#9CA3AF] dark:text-slate-500 cursor-not-allowed pointer-events-none shadow-none'
-                    : 'bg-[#ea580c] hover:bg-[#c2410c] text-white cursor-pointer shadow-lg shadow-orange-600/25 hover:scale-102 active:scale-98'
+                    : 'bg-slate-900 hover:bg-slate-800 text-white cursor-pointer shadow-none hover:scale-102 active:scale-98'
                 }`}
               >
                 {copiedQuote ? (

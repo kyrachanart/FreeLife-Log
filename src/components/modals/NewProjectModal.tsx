@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, X, Briefcase, DollarSign, Clock, Tag, UserCheck, UserPlus, Palette, Check } from 'lucide-react';
 import { Project, ProjectFeeType } from '../../types';
 import { useTheme } from '../../ThemeContext';
 import { getRecentCategories, saveRecentCategory } from '../../utils/storage';
-import { PRESET_CLIENT_COLORS, getClientColor, saveClientColor } from '../../utils/clientColors';
+import { getAvailableClientColors, getClientColor, saveClientColor } from '../../utils/clientColors';
 
 interface NewProjectModalProps {
   isOpen: boolean;
@@ -31,12 +31,28 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
     existingClients[0] || ''
   );
   const [newClientName, setNewClientName] = useState('');
-  const [clientColor, setClientColor] = useState<string>(PRESET_CLIENT_COLORS[0].hex);
+  const [clientColor, setClientColor] = useState<string>('#E11D48');
 
   const [category, setCategory] = useState('');
   const [recentCategories, setRecentCategories] = useState<string[]>([]);
   const [totalContractAmount, setTotalContractAmount] = useState<number | string>('');
   const [estimatedHours, setEstimatedHours] = useState<number | string>('');
+
+  // Calculate colors already used by existing clients (excluding current client if in existing mode)
+  const usedClientColors = useMemo(() => {
+    const used: string[] = [];
+    existingClients.forEach((c) => {
+      if (clientMode === 'existing' && c === selectedClient) {
+        return;
+      }
+      used.push(getClientColor(c));
+    });
+    return used;
+  }, [existingClients, clientMode, selectedClient]);
+
+  const availableColors = useMemo(() => {
+    return getAvailableClientColors(usedClientColors, clientColor);
+  }, [usedClientColors, clientColor]);
 
   useEffect(() => {
     if (isOpen) {
@@ -46,7 +62,7 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
       setEstimatedHours('');
       setCategory('');
       setNewClientName('');
-      setRecentCategories(getRecentCategories());
+      setRecentCategories(getRecentCategories().slice(0, 5));
       if (existingClients.length > 0) {
         setClientMode('existing');
         setSelectedClient(existingClients[0]);
@@ -54,7 +70,8 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
       } else {
         setClientMode('new');
         setSelectedClient('');
-        setClientColor(PRESET_CLIENT_COLORS[0].hex);
+        const initialAvail = getAvailableClientColors([]);
+        setClientColor(initialAvail[0]?.hex || '#E11D48');
       }
     }
   }, [isOpen, existingClients]);
@@ -65,12 +82,9 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
     setClientColor(getClientColor(client));
   };
 
-  // Update color when typing new client name if it's currently default/hash
+  // Do not change color when typing in new client name input
   const handleNewClientChange = (val: string) => {
     setNewClientName(val);
-    if (val.trim()) {
-      setClientColor(getClientColor(val.trim()));
-    }
   };
 
   if (!isOpen) return null;
@@ -259,9 +273,9 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
                 </div>
               </div>
 
-              {/* 8 Preset Color Circles + Custom Hex Input */}
+              {/* Preset Color Circles + Custom Hex Input */}
               <div className="flex items-center gap-2 flex-wrap mt-1">
-                {PRESET_CLIENT_COLORS.map((preset) => {
+                {availableColors.map((preset) => {
                   const isSelected = clientColor.toLowerCase() === preset.hex.toLowerCase();
                   return (
                     <button
@@ -293,7 +307,7 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
                   <div
                     className="w-7 h-7 rounded-full border border-dashed border-stone-400 dark:border-slate-600 flex items-center justify-center text-[10px] font-bold text-stone-500 dark:text-slate-400 hover:border-emerald-500 transition-colors pointer-events-none"
                     style={{
-                      borderColor: !PRESET_CLIENT_COLORS.some((c) => c.hex.toLowerCase() === clientColor.toLowerCase())
+                      borderColor: !availableColors.some((c) => c.hex.toLowerCase() === clientColor.toLowerCase())
                         ? clientColor
                         : undefined,
                     }}
@@ -324,13 +338,13 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
                   : 'bg-slate-950 border-slate-700 text-slate-100 focus:ring-2 focus:ring-emerald-500'
               }`}
             />
-            {/* 最近使用標籤 Chip Buttons */}
-            {recentCategories.length > 0 && (
+            {/* 最近使用標籤 Chip Buttons (上限 5 個) */}
+            {recentCategories.slice(0, 5).length > 0 && (
               <div className="mt-2 flex items-center gap-1.5 flex-wrap">
                 <span className="text-[11px] font-bold text-stone-400 flex items-center gap-1 shrink-0">
                   <Tag size={12} /> 最近使用：
                 </span>
-                {recentCategories.map((tag) => (
+                {recentCategories.slice(0, 5).map((tag) => (
                   <button
                     key={tag}
                     type="button"

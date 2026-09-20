@@ -31,14 +31,9 @@ export const ProjectHeader: React.FC<ProjectHeaderProps> = ({
             </h2>
           )}
           <span
-            className="text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5 border shadow-2xs shrink-0 max-w-full"
-            style={{
-              backgroundColor: `${clientColor}18`,
-              color: clientColor,
-              borderColor: `${clientColor}40`,
-            }}
+            className="text-white font-medium px-2.5 py-1 rounded-md text-xs flex items-center shrink-0 max-w-full shadow-2xs"
+            style={{ backgroundColor: clientColor }}
           >
-            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: clientColor }} />
             <span className="truncate max-w-[130px] sm:max-w-none">Client: {project.clientName}</span>
           </span>
           {project.category && (

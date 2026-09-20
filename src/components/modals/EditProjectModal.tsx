@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Edit2, X, Briefcase, DollarSign, Clock, Tag, Palette, Check } from 'lucide-react';
 import { Project, ProjectFeeType } from '../../types';
 import { useTheme } from '../../ThemeContext';
 import { getRecentCategories, saveRecentCategory } from '../../utils/storage';
-import { PRESET_CLIENT_COLORS, getClientColor, saveClientColor } from '../../utils/clientColors';
+import { getAvailableClientColors, getClientColor, saveClientColor } from '../../utils/clientColors';
+import { formatCurrency, formatHourlyRate } from '../../utils/currency';
 
 interface EditProjectModalProps {
   isOpen: boolean;
@@ -29,11 +30,29 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
   const [selectedClientOption, setSelectedClientOption] = useState<string>('');
   const [customClientName, setCustomClientName] = useState<string>('');
 
-  const [clientColor, setClientColor] = useState<string>(PRESET_CLIENT_COLORS[0].hex);
+  const [clientColor, setClientColor] = useState<string>('#E11D48');
   const [category, setCategory] = useState('');
   const [recentCategories, setRecentCategories] = useState<string[]>([]);
   const [totalContractAmount, setTotalContractAmount] = useState<number | string>(25000);
   const [estimatedHours, setEstimatedHours] = useState<number | string>('');
+
+  const currentDisplayClientName =
+    selectedClientOption === '__NEW_CLIENT__' ? customClientName.trim() : selectedClientOption.trim();
+
+  // Compute used colors by other clients (exclude current project's client)
+  const usedClientColors = useMemo(() => {
+    const used: string[] = [];
+    existingClients.forEach((c) => {
+      if (c.toLowerCase() !== currentDisplayClientName.toLowerCase()) {
+        used.push(getClientColor(c));
+      }
+    });
+    return used;
+  }, [existingClients, currentDisplayClientName]);
+
+  const availableColors = useMemo(() => {
+    return getAvailableClientColors(usedClientColors, clientColor);
+  }, [usedClientColors, clientColor]);
 
   useEffect(() => {
     if (project && isOpen) {
@@ -58,7 +77,7 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
 
       setClientColor(project.clientColor || project.color || getClientColor(projClient));
       setCategory(project.category || '');
-      setRecentCategories(getRecentCategories());
+      setRecentCategories(getRecentCategories().slice(0, 5));
       setTotalContractAmount(project.totalContractAmount ?? 0);
       setEstimatedHours(
         project.estimatedHours !== undefined && project.estimatedHours !== null
@@ -69,9 +88,6 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
   }, [project, isOpen, existingClients]);
 
   if (!isOpen || !project) return null;
-
-  const currentDisplayClientName =
-    selectedClientOption === '__NEW_CLIENT__' ? customClientName.trim() : selectedClientOption.trim();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -214,9 +230,9 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
                 </div>
               </div>
 
-              {/* 8 Preset Color Circles + Custom Hex Input */}
+              {/* Preset Color Circles + Custom Hex Input */}
               <div className="flex items-center gap-2 flex-wrap mt-1">
-                {PRESET_CLIENT_COLORS.map((preset) => {
+                {availableColors.map((preset) => {
                   const isSelected = clientColor.toLowerCase() === preset.hex.toLowerCase();
                   return (
                     <button
@@ -248,7 +264,7 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
                   <div
                     className="w-7 h-7 rounded-full border border-dashed border-stone-400 dark:border-slate-600 flex items-center justify-center text-[10px] font-bold text-stone-500 dark:text-slate-400 hover:border-emerald-500 transition-colors pointer-events-none"
                     style={{
-                      borderColor: !PRESET_CLIENT_COLORS.some((c) => c.hex.toLowerCase() === clientColor.toLowerCase())
+                      borderColor: !availableColors.some((c) => c.hex.toLowerCase() === clientColor.toLowerCase())
                         ? clientColor
                         : undefined,
                     }}
@@ -278,13 +294,13 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
                   : 'bg-slate-950 border-slate-700 text-slate-100 focus:ring-2 focus:ring-emerald-500'
               }`}
             />
-            {/* 最近使用標籤 Chip Buttons */}
-            {recentCategories.length > 0 && (
+            {/* 最近使用標籤 Chip Buttons (上限 5 個) */}
+            {recentCategories.slice(0, 5).length > 0 && (
               <div className="mt-2 flex items-center gap-1.5 flex-wrap">
                 <span className="text-[11px] font-bold text-stone-400 flex items-center gap-1 shrink-0">
                   <Tag size={12} /> 最近使用：
                 </span>
-                {recentCategories.map((tag) => (
+                {recentCategories.slice(0, 5).map((tag) => (
                   <button
                     key={tag}
                     type="button"
@@ -351,11 +367,11 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
               <span className="flex items-center gap-1.5 font-bold">
                 <span>💡 預估目標時薪：</span>
                 <span className="font-mono text-sm font-black text-emerald-700 dark:text-emerald-300">
-                  HK$ {((Number(totalContractAmount) || 0) / Number(estimatedHours)).toFixed(1)} / h
+                  {formatHourlyRate((Number(totalContractAmount) || 0) / Number(estimatedHours))}
                 </span>
               </span>
               <span className="text-[11px] opacity-80 font-mono">
-                (合約總額 HK$ {(Number(totalContractAmount) || 0).toLocaleString()} ÷ {Number(estimatedHours)} 小時)
+                (合約總額 {formatCurrency(Number(totalContractAmount) || 0)} ÷ {Number(estimatedHours)} 小時)
               </span>
             </div>
           ) : (

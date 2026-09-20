@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { Project, TimeSession } from '../../types';
 import { useTheme } from '../../ThemeContext';
+import { formatCurrency, formatHourlyRate } from '../../utils/currency';
 
 export interface ChatMessage {
   id: string;
@@ -599,10 +600,10 @@ export const AITimesheetTab: React.FC<AITimesheetTabProps> = ({
                 </span>
                 <div className="font-mono text-xl font-black text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
                   <TrendingDown size={18} />
-                  <span>HK$ {dilutedRate}/h</span>
+                  <span>{formatHourlyRate(dilutedRate)}</span>
                 </div>
                 <span className="text-[10px] text-rose-500/80">
-                  時薪被稀釋 -{rateDilutionPercent}%（原目標 ${targetHourlyRate}/h）
+                  時薪被稀釋 -{rateDilutionPercent}%（原目標 {formatHourlyRate(targetHourlyRate)}）
                 </span>
               </div>
 
@@ -611,10 +612,10 @@ export const AITimesheetTab: React.FC<AITimesheetTabProps> = ({
                   建議向 Client 追加報價
                 </span>
                 <div className="font-mono text-xl font-black text-emerald-700 dark:text-emerald-400">
-                  +HK$ {recommendedAddOnFee.toLocaleString()}
+                  +{formatCurrency(recommendedAddOnFee)}
                 </div>
                 <span className="text-[10px] text-emerald-600/80">
-                  以約定時薪 ${targetHourlyRate}/h × {scopeCreepHours}h 精確計費
+                  以約定時薪 {formatHourlyRate(targetHourlyRate)} × {scopeCreepHours}h 精確計費
                 </span>
               </div>
 

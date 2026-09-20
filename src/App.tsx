@@ -101,6 +101,27 @@ function AppContent() {
     return allProjects[0]?.id || '';
   });
 
+  // Independent project view selection for Page 2 (Overview) and Page 3 (Manual Entry)
+  const [overviewProjectId, setOverviewProjectId] = useState<string>(() => {
+    return activeProjectId || projects[0]?.id || '';
+  });
+
+  const [manualEntryProjectId, setManualEntryProjectId] = useState<string>(() => {
+    return activeProjectId || projects[0]?.id || '';
+  });
+
+  // Keep overviewProjectId and manualEntryProjectId valid if projects change
+  useEffect(() => {
+    if (projects.length > 0) {
+      if (!overviewProjectId || !projects.some((p) => p.id === overviewProjectId)) {
+        setOverviewProjectId(projects[0].id);
+      }
+      if (!manualEntryProjectId || !projects.some((p) => p.id === manualEntryProjectId)) {
+        setManualEntryProjectId(projects[0].id);
+      }
+    }
+  }, [projects, overviewProjectId, manualEntryProjectId]);
+
   // Persistent localStorage synchronization
   useEffect(() => {
     saveToLocalStorage(LOCAL_STORAGE_KEYS.PROJECTS, projects);
@@ -162,6 +183,13 @@ function AppContent() {
         return p;
       })
     );
+
+    // Synchronize global active project & overview project so that subsequent views immediately render this project
+    if (newSession.projectId) {
+      setActiveProjectId(newSession.projectId);
+      setOverviewProjectId(newSession.projectId);
+      setManualEntryProjectId(newSession.projectId);
+    }
 
     showToast(`✅ 已記錄 ${newSession.workDurationMinutes} 分鐘工時！`);
   }, [showToast]);
@@ -403,26 +431,14 @@ function AppContent() {
     timerBridge?.projectName || activeTimerProject?.name || '當前專案';
   const isResting = timerBridge?.timerState === 'resting';
 
-  // Independent project view selection for Page 2 (Overview) and Page 3 (Manual Entry)
-  const [overviewProjectId, setOverviewProjectId] = useState<string>(() => {
-    return activeProjectId || projects[0]?.id || '';
-  });
-
-  const [manualEntryProjectId, setManualEntryProjectId] = useState<string>(() => {
-    return activeProjectId || projects[0]?.id || '';
-  });
-
-  // Keep overviewProjectId and manualEntryProjectId valid if projects change
-  useEffect(() => {
-    if (projects.length > 0) {
-      if (!overviewProjectId || !projects.some((p) => p.id === overviewProjectId)) {
-        setOverviewProjectId(projects[0].id);
-      }
-      if (!manualEntryProjectId || !projects.some((p) => p.id === manualEntryProjectId)) {
-        setManualEntryProjectId(projects[0].id);
-      }
+  const handleNavigateTab = useCallback((tabId: string) => {
+    if (tabId === 'manual-entry') {
+      setManualEntryProjectId(activeProjectId);
+    } else if (tabId === 'calculator') {
+      setOverviewProjectId(activeProjectId);
     }
-  }, [projects, overviewProjectId, manualEntryProjectId]);
+    setActiveTab(tabId as any);
+  }, [activeProjectId]);
 
   // Page 1 (timer) strictly hides banner
   // Page 2 & 3 only show banner when viewing a project different from the active timer
@@ -497,40 +513,27 @@ function AppContent() {
           </div>
 
           {/* Header Quick Controls */}
-          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-            {/* User Profile / Creator Badge */}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* User Profile: Main Menu Card */}
             <button
               onClick={() => setIsProfileModalOpen(true)}
-              className={`h-9 px-2 sm:px-3 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
-                isWarm
-                  ? 'border-stone-300 bg-stone-100/80 hover:bg-stone-200 text-stone-800'
-                  : 'border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-200'
-              }`}
-              title="設定製表人姓名與職業"
+              className="bg-white border border-gray-200 shadow-xs text-gray-800 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-700/70 hover:bg-gray-50 px-3 py-1.5 rounded-xl font-medium text-sm flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 select-none"
+              title="用戶設定"
             >
-              <User size={14} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
-              <div className="text-left leading-tight hidden md:block">
-                <div className="font-extrabold truncate max-w-[100px] sm:max-w-[130px]">
-                  {freelancerProfile.name || '輸入姓名...'}
-                </div>
-                <div className="text-[10px] text-stone-500 dark:text-slate-400 truncate max-w-[100px] sm:max-w-[130px]">
-                  {freelancerProfile.title || '設定職業...'}
-                </div>
-              </div>
+              <User size={15} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <span className="truncate max-w-[80px] sm:max-w-none">
+                {freelancerProfile.name?.trim() || '用戶'}
+              </span>
             </button>
 
-            {/* Clear All Data with Modal Confirmation - Explicitly labelled "重置" */}
+            {/* Clear All Data: Subtle Danger Button */}
             <button
               onClick={() => setIsClearModalOpen(true)}
-              className={`px-2.5 sm:px-3 py-2 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 whitespace-nowrap ${
-                isWarm
-                  ? 'border-gray-200 bg-white hover:bg-gray-50 text-gray-600 shadow-2xs'
-                  : 'border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 shadow-2xs'
-              }`}
+              className="bg-red-50/70 border border-red-200/80 text-red-600 dark:bg-red-950/40 dark:border-red-900/60 dark:text-red-400 active:bg-red-100 dark:active:bg-red-900/60 hover:bg-red-100/70 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all flex items-center gap-1 cursor-pointer shrink-0 whitespace-nowrap select-none"
               title="清空所有紀錄與資料（含防呆確認）"
             >
-              <RotateCcw size={14} className="shrink-0 text-gray-500 dark:text-slate-400" />
-              <span className="hidden sm:inline">重置</span>
+              <RotateCcw size={13} className="shrink-0" />
+              <span>重置</span>
             </button>
           </div>
         </div>
@@ -567,9 +570,15 @@ function AppContent() {
                     ? 'text-[#9a3412] dark:text-[#fdba74]'
                     : 'text-emerald-950 dark:text-emerald-200'
                 }`}
-                title={`⏱️ 正在為「${activeTimerProjectName}」計時中`}
+                title={
+                  isResting
+                    ? `正在休息中 (${timerBridge?.elapsedFormatted || '00:00:00'})`
+                    : `正在為「${activeTimerProjectName}」計時中`
+                }
               >
-                {`⏱️ 正在為「${activeTimerProjectName}」計時中`}
+                {isResting
+                  ? `正在休息中 (${timerBridge?.elapsedFormatted || '00:00:00'})`
+                  : `正在為「${activeTimerProjectName}」計時中`}
               </span>
             </div>
 
@@ -619,10 +628,11 @@ function AppContent() {
             onDeleteProjects={handleDeleteProjects}
             onMoveProjects={handleMoveProjects}
             onUpdateProject={handleUpdateProject}
-            onNavigateTab={setActiveTab}
+            onNavigateTab={handleNavigateTab}
             onOpenNewProjectModal={handleTriggerNewProject}
             freelancerProfile={freelancerProfile}
             activeProjectId={activeProjectId}
+            setActiveProjectId={setActiveProjectId}
             viewProjectId={overviewProjectId}
             onViewProjectChange={setOverviewProjectId}
             hourlyRateVisibilityMap={hourlyRateVisibilityMap}
@@ -647,10 +657,11 @@ function AppContent() {
             projects={projects}
             sessions={sessions}
             onSaveSession={handleSaveSession}
-            onNavigateTab={setActiveTab}
+            onNavigateTab={handleNavigateTab}
             onOpenNewProjectModal={handleTriggerNewProject}
             onUpdateProject={handleUpdateProject}
             activeProjectId={activeProjectId}
+            setActiveProjectId={setActiveProjectId}
             viewProjectId={manualEntryProjectId}
             onViewProjectChange={setManualEntryProjectId}
             timerStatus={
@@ -727,7 +738,7 @@ function AppContent() {
               <button
                 key={item.id}
                 type="button"
-                onClick={() => setActiveTab(item.id)}
+                onClick={() => handleNavigateTab(item.id)}
                 className={`flex flex-col items-center justify-center py-1.5 px-2 rounded-xl transition-all cursor-pointer ${
                   isActive
                     ? 'text-emerald-600 dark:text-emerald-400 font-extrabold bg-emerald-50/80 dark:bg-emerald-950/40'

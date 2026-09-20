@@ -16,24 +16,23 @@ export const LOCAL_STORAGE_KEYS = {
 };
 
 export const DEFAULT_RECENT_CATEGORIES = [
-  '插畫',
-  '平面設計',
   '書籍排版',
-  '繪本',
-  '角色設定',
+  '網頁設計',
+  '品牌識別',
+  '插畫設計',
   'UI/UX',
 ];
 
 export function getRecentCategories(): string[] {
   const list = loadFromLocalStorage<string[]>(LOCAL_STORAGE_KEYS.RECENT_CATEGORIES, DEFAULT_RECENT_CATEGORIES);
-  return Array.isArray(list) && list.length > 0 ? list : DEFAULT_RECENT_CATEGORIES;
+  return (Array.isArray(list) && list.length > 0 ? list : DEFAULT_RECENT_CATEGORIES).slice(0, 5);
 }
 
 export function saveRecentCategory(newCategory: string): string[] {
   const trimmed = newCategory.trim();
   if (!trimmed) return getRecentCategories();
   const current = getRecentCategories();
-  const updated = [trimmed, ...current.filter((c) => c.toLowerCase() !== trimmed.toLowerCase())].slice(0, 8);
+  const updated = [trimmed, ...current.filter((c) => c.toLowerCase() !== trimmed.toLowerCase())].slice(0, 5);
   saveToLocalStorage(LOCAL_STORAGE_KEYS.RECENT_CATEGORIES, updated);
   return updated;
 }

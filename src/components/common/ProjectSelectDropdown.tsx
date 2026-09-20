@@ -133,7 +133,7 @@ export const ProjectSelectDropdown: React.FC<ProjectSelectDropdownProps> = ({
               ? '計時進行中已鎖定 Project。如需查看其他 Project 資料，請切換至「Project 總覽」'
               : undefined
           }
-          className={`w-full flex items-center justify-between gap-2 rounded-xl px-2.5 py-1.5 sm:px-3 sm:py-2 text-left border transition-all select-none ${
+          className={`w-full h-10 flex items-center justify-between gap-2 rounded-xl px-2.5 sm:px-3 text-left border transition-all select-none ${
             disabled
               ? 'opacity-60 grayscale cursor-not-allowed bg-stone-100 dark:bg-slate-900 border-stone-300 dark:border-slate-700 text-stone-700 dark:text-slate-300 shadow-none'
               : isWarm

@@ -35,6 +35,7 @@ import { ProjectHeader } from '../common/ProjectHeader';
 import { BatchDeleteProjectsModal } from '../modals/BatchDeleteProjectsModal';
 import { ProjectSelectDropdown } from '../common/ProjectSelectDropdown';
 import { getClientColor } from '../../utils/clientColors';
+import { formatCurrency, formatHourlyRate } from '../../utils/currency';
 
 interface CalculatorTabProps {
   projects: Project[];
@@ -156,6 +157,9 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
     setViewProjectId(targetId);
     if (onViewProjectChange) {
       onViewProjectChange(targetId);
+    }
+    if (setActiveProjectId) {
+      setActiveProjectId(targetId);
     }
   };
 
@@ -379,8 +383,8 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
     : targetEstimatedRate;
 
   const effectiveHourlyRateText = isUnderOneHour
-    ? (targetEstimatedRate !== null ? `HK$ ${targetEstimatedRate.toFixed(1)} / h (目標預估)` : 'HK$ -- / h')
-    : (effectiveHourlyRate !== null ? `HK$ ${effectiveHourlyRate.toFixed(1)} / h` : 'HK$ -- / h');
+    ? (targetEstimatedRate !== null ? `${formatHourlyRate(targetEstimatedRate)} (目標預估)` : 'HK$ -- / h')
+    : (effectiveHourlyRate !== null ? formatHourlyRate(effectiveHourlyRate) : 'HK$ -- / h');
 
   const wH = Math.floor(totalWorkedMinutes / 60);
   const wM = totalWorkedMinutes % 60;
@@ -839,13 +843,15 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
         }}
       >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-stone-100 dark:border-slate-800 gap-3">
-          <div>
-            <h3 className="font-extrabold text-base sm:text-lg text-stone-900 dark:text-slate-100">
-              Timesheet 詳細工時紀錄
-            </h3>
-            <p className="text-xs text-stone-500 dark:text-slate-400 mt-0.5">
-              包含專注計時與手動補記的所有明細，支援單筆刪除與工時即時重算
-            </p>
+          <div className="flex items-center gap-2.5">
+            <div className="p-2.5 rounded-2xl bg-stone-100 dark:bg-slate-800 text-stone-600 dark:text-slate-400 shrink-0">
+              <FileText size={20} />
+            </div>
+            <div>
+              <h3 className="font-extrabold text-base sm:text-lg text-stone-900 dark:text-slate-100">
+                Timesheet 詳細工時紀錄
+              </h3>
+            </div>
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
@@ -983,13 +989,16 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                         />
                       </div>
                     ) : (
-                      <p
+                      <div
                         onClick={() => handleStartEditSession(session)}
-                        className="text-xs sm:text-sm font-semibold text-stone-800 dark:text-slate-200 break-words cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
-                        title="點擊以修改工作內容"
+                        className="flex items-start gap-1.5 cursor-pointer group/note"
+                        title="點擊以修改筆記內容"
                       >
-                        {session.taskDescription}
-                      </p>
+                        <FileText size={13} className="text-stone-400 dark:text-slate-500 shrink-0 mt-0.5 group-hover/note:text-emerald-600 dark:group-hover/note:text-emerald-400 transition-colors" />
+                        <p className="text-xs sm:text-sm font-semibold text-stone-800 dark:text-slate-200 break-words group-hover/note:text-emerald-600 dark:group-hover/note:text-emerald-400 transition-colors">
+                          {session.taskDescription}
+                        </p>
+                      </div>
                     )}
                   </div>
 
@@ -1028,7 +1037,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                         type="button"
                         onClick={() => handleStartEditSession(session)}
                         className="p-1.5 rounded-lg text-stone-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors cursor-pointer"
-                        title="修改工作內容"
+                        title="點擊以修改筆記內容"
                       >
                         <Edit2 size={15} />
                       </button>
@@ -1064,21 +1073,16 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
         >
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-stone-100 dark:border-slate-800 gap-3">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2.5 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                <FileText size={20} />
-              </div>
-              <div>
-                <h3 className="font-black text-base sm:text-lg text-stone-900 dark:text-slate-100 flex items-center gap-2">
-                  <span>工作筆記</span>
-                  <span className="text-xs px-2 py-0.5 rounded-full font-mono font-bold bg-stone-100 dark:bg-slate-800 text-stone-600 dark:text-slate-400">
-                    {currentMemos.length} 則紀錄
-                  </span>
-                </h3>
-                <p className="text-xs text-stone-500 dark:text-slate-400 mt-0.5">
-                  記錄「{currentProject.name}」的客戶溝通重點、交件備忘或合約 Memo，不影響任何 Timesheet 工時紀錄
-                </p>
-              </div>
+            <div>
+              <h3 className="font-black text-base sm:text-lg text-stone-900 dark:text-slate-100 flex items-center gap-2">
+                <span>工作筆記</span>
+                <span className="text-xs px-2 py-0.5 rounded-full font-mono font-bold bg-stone-100 dark:bg-slate-800 text-stone-600 dark:text-slate-400">
+                  {currentMemos.length} 則紀錄
+                </span>
+              </h3>
+              <p className="text-xs text-stone-500 dark:text-slate-400 mt-0.5">
+                一鍵記錄「{currentProject.name}」的重點備忘
+              </p>
             </div>
 
             <button
@@ -1229,7 +1233,11 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                               </div>
                             </div>
                           ) : (
-                            <p className="text-xs sm:text-sm text-stone-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed break-words font-sans">
+                            <p
+                              onClick={() => handleStartEditMemo(memoItem)}
+                              className="text-xs sm:text-sm text-stone-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed break-words font-sans cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                              title="點擊以修改筆記內容"
+                            >
                               {memoItem.content}
                             </p>
                           )}
@@ -1244,12 +1252,12 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                               onClick={() => handleStartEditMemo(memoItem)}
                               className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
                                 editingMemoId === memoItem.id
-                                  ? 'bg-amber-500 text-white border-amber-500'
+                                  ? 'bg-emerald-600 text-white border-emerald-600'
                                   : isWarm
-                                  ? 'border-stone-200 text-stone-600 hover:text-amber-600 hover:bg-amber-50 hover:border-amber-300'
-                                  : 'border-slate-700 text-slate-300 hover:text-amber-400 hover:bg-amber-950/40 hover:border-amber-700'
+                                  ? 'border-stone-200 text-stone-600 hover:text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300'
+                                  : 'border-slate-700 text-slate-300 hover:text-emerald-400 hover:bg-emerald-950/40 hover:border-emerald-700'
                               }`}
-                              title="編輯此筆記"
+                              title="點擊以修改筆記內容"
                             >
                               <Edit2 size={14} />
                             </button>

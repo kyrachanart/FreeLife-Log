@@ -28,6 +28,7 @@ import { TimerRunningInterceptionModal } from '../modals/TimerRunningInterceptio
 import { ProjectSelectDropdown } from '../common/ProjectSelectDropdown';
 import { ProjectHeader } from '../common/ProjectHeader';
 import { getClientColor } from '../../utils/clientColors';
+import { formatCurrency, formatHourlyRate } from '../../utils/currency';
 import {
   LOCAL_STORAGE_KEYS,
   loadFromLocalStorage,
@@ -541,8 +542,8 @@ export const TimerTab: React.FC<TimerTabProps> = ({
     : targetEstimatedRate;
 
   const liveRateText = isUnderOneHour
-    ? (targetEstimatedRate !== null ? `HK$ ${targetEstimatedRate.toFixed(1)} / h (目標預估)` : 'HK$ -- / h')
-    : (liveRate !== null ? `HK$ ${liveRate.toFixed(1)} / h` : 'HK$ -- / h');
+    ? (targetEstimatedRate !== null ? `${formatHourlyRate(targetEstimatedRate)} (目標預估)` : 'HK$ -- / h')
+    : (liveRate !== null ? formatHourlyRate(liveRate) : 'HK$ -- / h');
 
   // Continuous Work Calculation for 2-hour water alert
   const continuousSeconds = useMemo(() => {
@@ -942,7 +943,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
         </div>
       )}
 
-      {/* Top Project Selector & Info (Frameless / No Card Box) */}
+      {/* Top Project Selector & Info (Toggl/Notion-inspired minimalist card) */}
       {(() => {
         const displayProj = currentProject;
         const clientColor = displayProj
@@ -953,87 +954,82 @@ export const TimerTab: React.FC<TimerTabProps> = ({
           : '2026/09/19';
 
         return (
-          <div className="px-1 py-1">
-            {projects.length > 0 ? (
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 w-full text-xs">
-                {/* 1. 左側群組: [+ 新增 Project 按鈕] ➔ 選擇 PROJECT: ➔ 下拉選單 ➔ Client 標籤 ➔ 分類標籤 */}
-                <div className="flex items-center gap-2 flex-wrap min-w-0">
-                  {onOpenNewProjectModal && (
-                    <button
-                      type="button"
-                      onClick={onOpenNewProjectModal}
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-xs transition-all cursor-pointer hover:scale-102 active:scale-98 shrink-0"
-                      title="快速新增 Project"
-                    >
-                      <Plus size={13} />
-                      <span>新增 Project</span>
-                    </button>
-                  )}
+          <div className="w-full max-w-xl mx-auto">
+            <div className="bg-white dark:bg-slate-900 border border-stone-200/90 dark:border-slate-800 rounded-2xl p-3 sm:p-3.5 shadow-2xs transition-all">
+              {projects.length > 0 ? (
+                <div className="space-y-2">
+                  {/* Row 1: Left = Project Dropdown (occupies main width), Right = New Project button */}
+                  <div className="flex items-center gap-2 sm:gap-3 w-full">
+                    <div className="flex-1 min-w-0">
+                      <ProjectSelectDropdown
+                        projects={projects}
+                        selectedProjectId={selectedProjectId}
+                        onSelectProject={(id) => handleProjectChangeAttempt(id)}
+                        disabled={isTimerRunning}
+                        className="w-full"
+                      />
+                    </div>
 
-                  <span className="font-bold text-stone-500 dark:text-slate-400 whitespace-nowrap shrink-0 text-xs sm:text-sm ml-1">
-                    選擇 PROJECT:
-                  </span>
-
-                  <div className="w-[190px] sm:w-[240px] shrink-0">
-                    <ProjectSelectDropdown
-                      projects={projects}
-                      selectedProjectId={selectedProjectId}
-                      onSelectProject={(id) => handleProjectChangeAttempt(id)}
-                      disabled={isTimerRunning}
-                      className="w-full"
-                    />
+                    {onOpenNewProjectModal && (
+                      <button
+                        type="button"
+                        onClick={onOpenNewProjectModal}
+                        className="h-10 px-2.5 sm:px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95 shrink-0"
+                        title="快速新增 Project"
+                      >
+                        <Plus size={15} />
+                        <span className="hidden sm:inline">新增 Project</span>
+                      </button>
+                    )}
                   </div>
 
+                  {/* Row 2: Client & Category tags aligned directly below Project selector */}
                   {displayProj && (
-                    <div className="flex items-center gap-2 flex-wrap min-w-0 my-0.5 sm:my-0">
-                      <span
-                        className="font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5 border shadow-2xs shrink-0 max-w-full text-xs"
-                        style={{
-                          backgroundColor: `${clientColor}18`,
-                          color: clientColor,
-                          borderColor: `${clientColor}40`,
-                        }}
-                      >
-                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: clientColor }} />
-                        <span className="truncate max-w-[130px] sm:max-w-none">Client: {displayProj.clientName}</span>
-                      </span>
+                    <div className="flex items-center justify-between gap-2 flex-wrap min-w-0 pt-0.5">
+                      <div className="flex items-center gap-1.5 flex-wrap min-w-0 text-xs">
+                        {displayProj.clientName && (
+                          <span
+                            className="px-2.5 py-1 rounded-md text-white font-medium text-xs flex items-center shrink-0 shadow-2xs"
+                            style={{ backgroundColor: clientColor }}
+                          >
+                            <span className="truncate max-w-[140px] sm:max-w-none">Client: {displayProj.clientName}</span>
+                          </span>
+                        )}
 
-                      {displayProj.category && (
-                        <span className="font-bold px-2.5 py-1 rounded-full bg-stone-100 dark:bg-slate-800 text-stone-600 dark:text-slate-300 border border-stone-200 dark:border-slate-700 shrink-0 whitespace-nowrap text-xs">
-                          {displayProj.category}
-                        </span>
+                        {displayProj.category && (
+                          <span className="px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium text-xs shrink-0 whitespace-nowrap">
+                            {displayProj.category}
+                          </span>
+                        )}
+                      </div>
+
+                      {displayProj.createdAt && (
+                        <div className="shrink-0 font-medium text-stone-400 dark:text-slate-500 whitespace-nowrap text-[11px] ml-auto">
+                          建立於 <span className="font-mono">{formattedDate}</span>
+                        </div>
                       )}
                     </div>
                   )}
                 </div>
-
-                {/* 2. 右側: 建立日期 */}
-                {displayProj && (
-                  <div className="shrink-0 font-semibold text-stone-500 dark:text-slate-400 whitespace-nowrap text-[11px] sm:text-xs sm:ml-auto">
-                    建立於 <span className="font-mono">{formattedDate}</span>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 w-full py-1">
-                <div className="flex items-center gap-2 flex-wrap text-xs">
+              ) : (
+                <div className="flex items-center justify-between gap-3 w-full">
+                  <span className="text-xs font-semibold text-stone-500 dark:text-slate-400">
+                    尚未建立任何 Project
+                  </span>
                   {onOpenNewProjectModal && (
                     <button
                       type="button"
                       onClick={onOpenNewProjectModal}
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-xs transition-all cursor-pointer hover:scale-102 active:scale-98 shrink-0"
-                      title="快速新增 Project"
+                      className="h-10 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95 shrink-0"
+                      title="新增第一個 Project"
                     >
-                      <Plus size={13} />
+                      <Plus size={15} />
                       <span>新增 Project</span>
                     </button>
                   )}
-                  <span className="text-xs font-semibold text-stone-500 dark:text-slate-400 ml-1">
-                    尚無 Project，請先點擊按鈕建立 Project 即可開始專注計時
-                  </span>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         );
       })()}
@@ -1045,7 +1041,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
           id="timer-card"
           className={`border-2 transition-all relative overflow-hidden flex flex-col justify-between p-6 rounded-3xl ${
             timerState === 'resting'
-              ? 'border-2 border-[#DB6A35] bg-orange-50/30 dark:bg-slate-900 shadow-md'
+              ? 'border-2 border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-900 shadow-md'
               : 'border-2 border-emerald-500 bg-white dark:bg-slate-900 shadow-md'
           }`}
         >
@@ -1054,15 +1050,15 @@ export const TimerTab: React.FC<TimerTabProps> = ({
             {/* Left: Mode Status Badge with Pulsing Dot only when isActivelyRunning */}
             <div className="flex items-center">
               {timerState === 'resting' ? (
-                <span className="bg-orange-100/90 text-[#9a3412] px-3.5 py-1.5 rounded-full text-sm font-bold select-none flex items-center gap-2 dark:bg-orange-950/40 dark:text-orange-300">
+                <span className="bg-amber-100 text-amber-900 px-3.5 py-1.5 rounded-full text-sm font-bold select-none flex items-center gap-2 dark:bg-amber-950/60 dark:text-amber-300">
                   <span className="relative flex h-2.5 w-2.5 shrink-0">
                     {isActivelyRunning ? (
                       <>
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#DB6A35] opacity-75" />
-                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#DB6A35] animate-pulse" />
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-500 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500 animate-pulse" />
                       </>
                     ) : (
-                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#DB6A35]" />
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500" />
                     )}
                   </span>
                   <span>舒緩休息模式</span>
@@ -1096,9 +1092,9 @@ export const TimerTab: React.FC<TimerTabProps> = ({
 
           {/* 第 2 層 (核心計時) */}
           <div className="my-3 text-center">
-            <div className={`font-mono text-5xl sm:text-6xl font-bold my-4 select-none ${
+            <div className={`font-mono text-6xl sm:text-7xl font-bold my-4 select-none tracking-tight ${
               timerState === 'resting'
-                ? 'text-[#DB6A35]'
+                ? 'text-amber-600 dark:text-amber-400'
                 : 'text-emerald-600'
             }`}>
               {formatTime(timerState === 'resting' ? currentBreakSeconds : currentWorkSeconds)}
@@ -1110,132 +1106,126 @@ export const TimerTab: React.FC<TimerTabProps> = ({
             </div>
           </div>
 
-          {/* No Project selected empty warning */}
-          {!hasProject && (
-            <div className="mt-4 pt-4 border-t border-stone-100 dark:border-slate-800/80 w-full flex flex-col items-center gap-2">
-              <p className="text-xs font-bold text-rose-600 dark:text-rose-400 text-center">
-                ⚠️ 請先建立或選擇 Project 才能開始計時
-              </p>
-              {onOpenNewProjectModal && (
-                <button
-                  type="button"
-                  onClick={onOpenNewProjectModal}
-                  className="w-full max-w-xs py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black flex items-center justify-center gap-1 transition-all shadow-md shadow-emerald-600/15 cursor-pointer"
-                >
-                  <Plus size={14} />
-                  <span>建立第一個 Project</span>
-                </button>
-              )}
-            </div>
-          )}
-
           {/* 第 3 層 (高頻切換按鈕或開始計時按鈕) */}
-          {hasProject && (
-            <div className="mt-4 pt-4 border-t border-stone-100 dark:border-slate-800/80 w-full">
-              {!isTimerRunning && currentWorkSeconds === 0 && currentBreakSeconds === 0 ? (
-                /* 1. 未開始計時 (00:00:00)：顯示醒目的綠色主按鈕 [ 開始計時 ] 內部僅保留單一 Play icon */
-                <button
-                  type="button"
-                  onClick={handleStart}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-12 w-full max-w-xs rounded-full shadow-lg text-base cursor-pointer mx-auto flex items-center justify-center gap-2 border-none transition-all active:scale-98"
-                >
-                  <Play size={18} fill="currentColor" />
-                  <span>開始計時</span>
-                </button>
-              ) : (
-                /* 2. 計時進行中 / 已有時間：顯示「專注工作 / 舒緩休息」切換槽與右側重置圖示按鈕 */
-                <div className="flex items-center justify-center gap-3 w-full max-w-md mx-auto">
-                  {/* 切換槽 */}
-                  <div className="bg-gray-100 dark:bg-slate-800 p-1.5 rounded-full flex-1 flex gap-2 select-none">
-                    {/* Left button: ⏱️ 專注工作 */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (timerState === 'resting' || timerState === 'idle') {
-                          handleStart();
-                        }
-                      }}
-                      className={`rounded-full py-2.5 flex-1 cursor-pointer transition-all duration-200 border-none font-bold text-sm ${
-                        timerState !== 'resting'
-                          ? "bg-emerald-600 text-white shadow-md"
-                          : "text-gray-600 hover:bg-gray-200/50 dark:text-slate-300 dark:hover:bg-slate-700/50 font-semibold"
-                      }`}
-                    >
-                      <span>⏱️ 專注工作</span>
-                    </button>
-
-                    {/* Right button: ☕ 舒緩休息 */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (timerState === 'working' || timerState === 'idle') {
-                          handlePause();
-                        }
-                      }}
-                      className={`rounded-full py-2.5 flex-1 cursor-pointer transition-all duration-200 border-none font-bold text-sm ${
-                        timerState === 'resting'
-                          ? "bg-[#DB6A35] text-white shadow-sm"
-                          : "text-gray-600 hover:bg-gray-200/50 dark:text-slate-300 dark:hover:bg-slate-700/50 font-semibold"
-                      }`}
-                    >
-                      <span>☕ 舒緩休息</span>
-                    </button>
-                  </div>
-
-                  {/* 右側：圓形重置按鈕 */}
+          <div className="mt-4 pt-4 border-t border-stone-100 dark:border-slate-800/80 w-full">
+            {!isTimerRunning && currentWorkSeconds === 0 && currentBreakSeconds === 0 ? (
+              /* 1. 未開始計時 (00:00:00)：顯示醒目的綠色主按鈕 [ 開始計時 ] 內部僅保留單一 Play icon */
+              <button
+                type="button"
+                onClick={handleStart}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-12 w-full max-w-xs rounded-full shadow-lg text-base cursor-pointer mx-auto flex items-center justify-center gap-2 border-none transition-all active:scale-98"
+              >
+                <Play size={18} fill="currentColor" />
+                <span>開始計時</span>
+              </button>
+            ) : (
+              /* 2. 計時進行中 / 已有時間：顯示「專注工作 / 舒緩休息」切換槽與右側重置圖示按鈕 */
+              <div className="flex items-center justify-center gap-3 w-full max-w-md mx-auto">
+                {/* 切換槽 */}
+                <div className="bg-gray-100 dark:bg-slate-800 p-1.5 rounded-full flex-1 flex gap-2 select-none">
+                  {/* Left button: ⏱️ 專注工作 */}
                   <button
                     type="button"
-                    onClick={handleOpenResetConfirm}
-                    className="p-2 bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-full text-gray-600 dark:text-slate-300 transition-colors cursor-pointer flex items-center justify-center border-none shrink-0"
-                    title="重新計時（重置本節時間）"
+                    onClick={() => {
+                      if (!hasProject) {
+                        handleStart();
+                        return;
+                      }
+                      if (timerState === 'resting' || timerState === 'idle') {
+                        handleStart();
+                      }
+                    }}
+                    className={`rounded-full py-2.5 flex-1 cursor-pointer transition-all duration-200 border-none font-bold text-sm ${
+                      timerState !== 'resting'
+                        ? "bg-emerald-600 text-white shadow-md"
+                        : "text-gray-600 hover:bg-gray-200/50 dark:text-slate-300 dark:hover:bg-slate-700/50 font-semibold"
+                    }`}
                   >
-                    <RotateCcw size={18} />
+                    <span>⏱️ 專注工作</span>
+                  </button>
+
+                  {/* Right button: ☕ 舒緩休息 */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!hasProject) {
+                        showToast('⚠️ 請先選擇或新增 Project');
+                        if (onOpenNewProjectModal) onOpenNewProjectModal();
+                        return;
+                      }
+                      if (timerState === 'working' || timerState === 'idle') {
+                        handlePause();
+                      }
+                    }}
+                    className={`rounded-full py-2.5 flex-1 cursor-pointer transition-all duration-200 border-none font-bold text-sm ${
+                      timerState === 'resting'
+                        ? "bg-[#DB6A35] text-white shadow-sm"
+                        : "text-gray-600 hover:bg-gray-200/50 dark:text-slate-300 dark:hover:bg-slate-700/50 font-semibold"
+                    }`}
+                  >
+                    <span>☕ 舒緩休息</span>
                   </button>
                 </div>
-              )}
-            </div>
-          )}
+
+                {/* 右側：圓形重置按鈕 */}
+                <button
+                  type="button"
+                  onClick={handleOpenResetConfirm}
+                  className="p-2 bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-full text-gray-600 dark:text-slate-300 transition-colors cursor-pointer flex items-center justify-center border-none shrink-0"
+                  title="重新計時（重置本節時間）"
+                >
+                  <RotateCcw size={18} />
+                </button>
+              </div>
+            )}
+          </div>
 
           {/* 第 4 層 (分割線與收尾結算區) */}
           <div className="border-t border-gray-100 dark:border-slate-800 my-4" />
           <div className="flex gap-3 items-center w-full">
-            {/* Left: Input box (Wide) */}
-            <input
-              type="text"
-              placeholder="💬 輸入當前工作內容..."
-              value={taskNote}
-              disabled={!hasProject}
-              onChange={(e) => setTaskNote(e.target.value)}
-              className="flex-1 bg-gray-100 border border-gray-200 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 rounded-xl p-2.5 text-sm focus:outline-none focus:border-gray-400 text-stone-900 animate-none"
-            />
+            {/* Left: Input box (Wide) - Disabled when timer not started and no time accumulated */}
+            {(() => {
+              const isSettlementDisabled = !hasProject || (!isTimerRunning && currentWorkSeconds === 0);
+              return (
+                <>
+                  <input
+                    type="text"
+                    placeholder={
+                      !hasProject
+                        ? "⚠️ 請先選擇或建立 Project"
+                        : (!isTimerRunning && currentWorkSeconds === 0)
+                        ? "請先開始計時後再輸入工作內容..."
+                        : "💬 輸入當前工作內容..."
+                    }
+                    value={taskNote}
+                    disabled={isSettlementDisabled}
+                    onChange={(e) => setTaskNote(e.target.value)}
+                    className={`flex-1 border rounded-xl p-2.5 text-sm focus:outline-none transition-all ${
+                      isSettlementDisabled
+                        ? "bg-gray-100/70 border-gray-200 text-gray-400 dark:bg-slate-900/40 dark:border-slate-800 dark:text-slate-600 opacity-50 cursor-not-allowed select-none"
+                        : "bg-gray-100 border-gray-200 text-stone-900 focus:border-gray-400 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100"
+                    }`}
+                  />
 
-            {/* Right: Premium dark slate settlement button */}
-            <button
-              type="button"
-              onClick={handleRecord}
-              className="bg-slate-900 hover:bg-black text-white px-5 py-2.5 rounded-xl font-bold transition-all shrink-0 dark:bg-slate-100 dark:hover:bg-white dark:text-slate-900 border-none text-sm cursor-pointer select-none"
-            >
-              <span>✓ 完成結算</span>
-            </button>
+                  {/* Right: Settlement button - Disabled when timer not started and no time accumulated */}
+                  <button
+                    type="button"
+                    disabled={isSettlementDisabled}
+                    onClick={handleRecord}
+                    className={`px-5 py-2.5 rounded-xl font-bold transition-all shrink-0 text-sm select-none border-none ${
+                      isSettlementDisabled
+                        ? "bg-gray-200 text-gray-400 dark:bg-slate-800 dark:text-slate-600 opacity-50 cursor-not-allowed shadow-none"
+                        : "bg-slate-900 hover:bg-black text-white dark:bg-slate-100 dark:hover:bg-white dark:text-slate-900 cursor-pointer shadow-xs active:scale-98"
+                    }`}
+                  >
+                    <span>✓ 完成結算</span>
+                  </button>
+                </>
+              );
+            })()}
           </div>
         </div>
       </div>
-
-        {/* Footer info */}
-        <div className="mt-6 pt-4 border-t border-stone-100 dark:border-slate-800/60 flex flex-col sm:flex-row items-center justify-between text-[11px] text-stone-400 dark:text-slate-500 gap-2.5 flex-wrap">
-          <span>
-            ⏱️ 採用時間戳差值 (Timestamp Delta) 技術，背景切頁、手機鎖屏待機精準零延遲。
-          </span>
-          <div className="flex items-center gap-3 flex-wrap">
-            <button
-              onClick={handleTest2HourAlert}
-              className="text-stone-400 hover:text-amber-600 dark:hover:text-amber-400 underline cursor-pointer"
-              title="點擊直接模擬連續開工滿 2 小時觸發智能飲水提醒"
-            >
-              ⚡ 測試 2 小時提醒
-            </button>
-          </div>
-        </div>
 
       {/* Reset Confirmation Modal */}
       {isResetConfirmModalOpen && (

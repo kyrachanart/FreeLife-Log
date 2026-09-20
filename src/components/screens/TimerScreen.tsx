@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Play, Pause, Coffee, Sparkles, CheckCircle2, ChevronDown, Zap, Clock, DollarSign, ArrowUpRight } from 'lucide-react';
 import { Project, ProjectFeeType } from '../../types';
 import { useTheme } from '../../ThemeContext';
+import { getClientColor } from '../../utils/clientColors';
 
 interface TimerScreenProps {
   projects: Project[];
@@ -105,15 +106,10 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <div
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
-              isWarm
-                ? 'bg-white border border-stone-200 text-stone-700 shadow-xs'
-                : 'bg-slate-900 border border-slate-800 text-slate-300'
-            }`}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium text-white shadow-2xs"
+            style={{ backgroundColor: currentProject.clientColor || currentProject.color || getClientColor(currentProject.clientName) }}
           >
-            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: currentProject.color }} />
             <span className="truncate max-w-[120px]">Client: {currentProject.clientName}</span>
-            <ChevronDown size={12} className={isWarm ? 'text-stone-400' : 'text-slate-400'} />
           </div>
 
           <button
