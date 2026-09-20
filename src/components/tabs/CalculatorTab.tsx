@@ -1090,26 +1090,16 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                 一鍵記錄「{currentProject.name}」的重點備忘
               </p>
             </div>
-
-            <button
-              type="button"
-              onClick={handleSaveMemo}
-              className="px-5 py-2.5 rounded-2xl text-xs sm:text-sm font-black bg-emerald-600 hover:bg-emerald-700 text-white transition-all shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 cursor-pointer shrink-0 hover:scale-102 active:scale-98"
-              title="儲存此 Project 備忘筆記至下方歷史紀錄"
-            >
-              <CheckCircle2 size={16} />
-              <span>儲存筆記</span>
-            </button>
           </div>
 
           {/* New Memo Input Box */}
-          <div className="space-y-2">
+          <div className="space-y-3">
             <textarea
               rows={3}
               placeholder={`例：
-1. 聯絡人：Marketing Amy (WhatsApp: 9123 4567)
+1. 聯絡 Marketing Amy
 2. 聽日 WhatsApp 搵 Client 追覆稿 / Confirm 初稿
-3. 尾款交稿後 14 日內過數 (FPS / 轉數快)`}
+3. 尾款交稿後 14 日內過數 (FPS/Payme)`}
               value={projectMemoInput}
               onChange={(e) => setProjectMemoInput(e.target.value)}
               onKeyDown={(e) => {
@@ -1127,13 +1117,20 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                   : 'bg-slate-950 border-slate-700 text-slate-100 focus:ring-2 focus:ring-emerald-500'
               }`}
             />
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between text-[11px] text-stone-400 gap-1 px-1">
-              <span>
-                💡 撰寫完畢後點擊【儲存筆記】（或按Enter輸入）
-              </span>
-              <span className="font-mono">
+            <div className="flex items-center justify-between gap-3 px-1">
+              <span className="text-[11px] text-stone-400 dark:text-slate-500 font-mono">
                 字數：{projectMemoInput.length} 字
               </span>
+              
+              <button
+                type="button"
+                onClick={handleSaveMemo}
+                className="px-5 py-2 rounded-2xl text-xs sm:text-sm font-black bg-emerald-600 hover:bg-emerald-700 text-white transition-all shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 cursor-pointer shrink-0 hover:scale-102 active:scale-98"
+                title="儲存此 Project 備忘筆記至下方歷史紀錄"
+              >
+                <CheckCircle2 size={16} />
+                <span>儲存筆記</span>
+              </button>
             </div>
           </div>
 
