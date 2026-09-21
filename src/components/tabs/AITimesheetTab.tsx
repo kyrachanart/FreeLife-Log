@@ -21,6 +21,7 @@ import {
 import { Project, TimeSession } from '../../types';
 import { useTheme } from '../../ThemeContext';
 import { formatCurrency, formatHourlyRate } from '../../utils/currency';
+import { isSessionOnDate, getLocalDateString } from '../../utils/dateUtils';
 
 export interface ChatMessage {
   id: string;
@@ -192,7 +193,7 @@ export const AITimesheetTab: React.FC<AITimesheetTabProps> = ({
     const earned = Math.round((log.workMinutes / 60) * effectiveRate);
 
     const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
+    const todayStr = getLocalDateString(now);
 
     const newSession: TimeSession = {
       id: `sess-${Date.now()}`,
@@ -201,6 +202,8 @@ export const AITimesheetTab: React.FC<AITimesheetTabProps> = ({
       clientName: log.clientName,
       taskDescription: log.taskDescription,
       date: todayStr,
+      startDate: todayStr,
+      endDate: todayStr,
       startTime: '10:00',
       endTime: '12:00',
       workDurationMinutes: log.workMinutes,
@@ -217,8 +220,8 @@ export const AITimesheetTab: React.FC<AITimesheetTabProps> = ({
 
   // Copy today summary text
   const handleCopyTodaySummary = () => {
-    const today = new Date().toISOString().split('T')[0];
-    const todaySessions = sessions.filter((s) => s.date === today);
+    const today = getLocalDateString();
+    const todaySessions = sessions.filter((s) => isSessionOnDate(s, today));
     const todayMins = todaySessions.reduce((acc, s) => acc + s.workDurationMinutes, 0);
     const todayBreakMins = todaySessions.reduce((acc, s) => acc + s.breakDurationMinutes, 0);
     const todayEarned = todaySessions.reduce((acc, s) => acc + s.earnedAmount, 0);
@@ -265,7 +268,7 @@ export const AITimesheetTab: React.FC<AITimesheetTabProps> = ({
     <div className="space-y-6 max-w-4xl mx-auto">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-6 right-6 z-50 px-4 py-3 rounded-2xl bg-stone-900 text-white dark:bg-emerald-600 shadow-2xl text-xs font-bold animate-bounce flex items-center gap-2">
+        <div className="fixed z-50 bottom-20 left-1/2 -translate-x-1/2 max-w-[92vw] w-max md:bottom-auto md:top-20 md:right-6 md:left-auto md:translate-x-0 md:max-w-md px-4 py-2.5 rounded-2xl bg-emerald-600 text-white shadow-xl text-sm font-semibold flex items-center gap-2 border border-emerald-400 toast-mobile-slide-up select-none pointer-events-auto">
           <span>{toastMessage}</span>
         </div>
       )}

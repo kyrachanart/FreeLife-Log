@@ -41,9 +41,14 @@ export interface TimeSession {
   projectName: string;
   clientName: string;
   taskDescription: string;
-  date: string; // YYYY-MM-DD
+  date: string; // YYYY-MM-DD (Start date in local time)
+  startDate?: string; // YYYY-MM-DD
+  endDate?: string; // YYYY-MM-DD
   startTime: string; // HH:mm
   endTime?: string; // HH:mm
+  startISO?: string; // ISO 8601 UTC timestamp
+  endISO?: string; // ISO 8601 UTC timestamp
+  isCrossMidnight?: boolean; // Flag for cross-midnight sessions
   workDurationMinutes: number;
   breakDurationMinutes: number;
   effectiveHourlyRate: number;

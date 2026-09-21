@@ -20,6 +20,8 @@ import { useTheme } from '../../ThemeContext';
 import { ProjectSelectDropdown } from '../common/ProjectSelectDropdown';
 import { getClientColor } from '../../utils/clientColors';
 import { formatCurrency, formatHourlyRate } from '../../utils/currency';
+import { getLocalDateString, toISOUTC } from '../../utils/dateUtils';
+import { LOCAL_STORAGE_KEYS, loadFromLocalStorage, saveToLocalStorage } from '../../utils/storage';
 
 interface ManualEntryTabProps {
   projects: Project[];
@@ -128,7 +130,7 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
     }
   };
 
-  const [workDate, setWorkDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
+  const [workDate, setWorkDate] = useState<string>(() => getLocalDateString());
 
   // Year, Month, Day helper calculations for dropdown selectors
   const [yearVal, monthVal, dayVal] = useMemo(() => {
@@ -144,7 +146,7 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
     ];
   }, [workDate]);
 
-  const todayObj = useMemo(() => new Date(), []);
+  const todayObj = new Date();
   const currYear = todayObj.getFullYear();
   const currMonth = todayObj.getMonth() + 1;
   const currDay = todayObj.getDate();
@@ -448,8 +450,11 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
     const earnedAmount = Math.round((addedMins / 60) * targetHourlyRate);
     const now = new Date();
     const startTimeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    const effectiveDate = workDate || getLocalDateString(now);
     const endNow = new Date(now.getTime() + addedMins * 60000);
     const endTimeStr = `${endNow.getHours().toString().padStart(2, '0')}:${endNow.getMinutes().toString().padStart(2, '0')}`;
+    const endDateStr = getLocalDateString(endNow);
+    const isCross = endDateStr !== effectiveDate;
 
     const finalDesc = taskNote.trim() || `快捷加時 (${label})`;
     if (taskNote.trim()) {
@@ -462,9 +467,14 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
       projectName: currentProject.name,
       clientName: currentProject.clientName,
       taskDescription: finalDesc,
-      date: workDate || new Date().toISOString().split('T')[0],
+      date: effectiveDate,
+      startDate: effectiveDate,
+      endDate: endDateStr,
       startTime: startTimeStr,
       endTime: endTimeStr,
+      startISO: toISOUTC(now),
+      endISO: toISOUTC(endNow),
+      isCrossMidnight: isCross,
       workDurationMinutes: addedMins,
       breakDurationMinutes: 0,
       effectiveHourlyRate: targetHourlyRate,
@@ -475,6 +485,7 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
 
     onSaveSession(newSession);
     setTaskNote('');
+    setWorkDate(getLocalDateString());
 
     if (setActiveProjectId) {
       setActiveProjectId(newSession.projectId);
@@ -504,7 +515,7 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
       return;
     }
 
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getLocalDateString();
     if (workDate && workDate > todayStr) {
       showToast('⚠️ 手動補記僅限過去或今天的工時紀錄');
       return;
@@ -531,6 +542,35 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
 
     const startStr = startTime.trim();
     const endStr = endTime.trim();
+    const effectiveWorkDate = workDate || todayStr;
+
+    // Calculate start & end ISO timestamps
+    let startISO = '';
+    let endISO = '';
+    let isCross = false;
+    let computedEndDate = effectiveWorkDate;
+
+    if (startStr) {
+      try {
+        const [sh, sm] = startStr.split(':').map(Number);
+        const startDateObj = new Date(`${effectiveWorkDate}T${String(sh).padStart(2, '0')}:${String(sm).padStart(2, '0')}:00`);
+        startISO = toISOUTC(startDateObj);
+
+        const totalGrossMins = totalWorkMins + b;
+        const endDateObj = new Date(startDateObj.getTime() + totalGrossMins * 60000);
+        endISO = toISOUTC(endDateObj);
+        computedEndDate = getLocalDateString(endDateObj);
+        isCross = computedEndDate !== effectiveWorkDate;
+      } catch (err) {
+        startISO = toISOUTC();
+        endISO = toISOUTC();
+      }
+    } else {
+      startISO = toISOUTC();
+      endISO = toISOUTC();
+    }
+
+    const finalEndTimeStr = endStr || (startStr ? calcEndTimeStr(startStr, totalWorkMins + b) : '--:--');
 
     const newSession: TimeSession = {
       id: `sess-${Date.now()}`,
@@ -538,9 +578,14 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
       projectName: currentProject.name,
       clientName: currentProject.clientName,
       taskDescription: finalDescription,
-      date: workDate || new Date().toISOString().split('T')[0],
+      date: effectiveWorkDate,
+      startDate: effectiveWorkDate,
+      endDate: computedEndDate,
       startTime: startStr || '--:--',
-      endTime: endStr || (startStr ? calcEndTimeStr(startStr, totalWorkMins + b) : '--:--'),
+      endTime: finalEndTimeStr,
+      startISO,
+      endISO,
+      isCrossMidnight: isCross,
       workDurationMinutes: totalWorkMins,
       breakDurationMinutes: b,
       effectiveHourlyRate: targetHourlyRate,
@@ -551,8 +596,15 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
 
     onSaveSession(newSession);
     
-    // Clear note after submit
+    // Reset all form inputs to clean initial state (including resetting workDate to today)
+    setWorkDate(todayStr);
+    setWorkHours('');
+    setWorkMinutes('');
+    setBreakMinutes(0);
     setTaskNote('');
+    setStartTime('');
+    setEndTime('');
+    setIsTimeRangeExpanded(false);
 
     if (setActiveProjectId) {
       setActiveProjectId(newSession.projectId);
@@ -642,10 +694,10 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
       {toastMessage && (
         <div
           id="manual-entry-tab-toast"
-          className={`fixed top-24 right-6 z-50 text-white px-4 py-2.5 rounded-2xl shadow-xl text-sm font-semibold flex items-center gap-2 border transition-all duration-200 animate-in fade-in slide-in-from-top-2 ${
+          className={`fixed z-50 bottom-20 left-1/2 -translate-x-1/2 max-w-[92vw] w-max md:bottom-auto md:top-20 md:right-6 md:left-auto md:translate-x-0 md:max-w-md text-white px-4 py-2.5 rounded-2xl shadow-xl text-sm font-semibold flex items-center gap-2 border transition-all duration-200 toast-mobile-slide-up select-none pointer-events-auto ${
             toastType === 'break'
-              ? 'bg-[#ea580c] border-orange-400 shadow-orange-950/20'
-              : 'bg-emerald-600 border-emerald-400 shadow-emerald-950/20'
+              ? 'bg-[#ea580c] border-orange-400 shadow-orange-950/25'
+              : 'bg-emerald-600 border-emerald-400 shadow-emerald-950/25'
           }`}
         >
           {toastType === 'break' ? (

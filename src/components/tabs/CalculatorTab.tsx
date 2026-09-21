@@ -526,10 +526,10 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
       {toastMessage && (
         <div
           id="calculator-tab-toast"
-          className={`fixed top-24 right-6 z-50 text-white px-4 py-2.5 rounded-2xl shadow-xl text-sm font-semibold flex items-center gap-2 border transition-all duration-200 animate-in fade-in slide-in-from-top-2 ${
+          className={`fixed z-50 bottom-20 left-1/2 -translate-x-1/2 max-w-[92vw] w-max md:bottom-auto md:top-20 md:right-6 md:left-auto md:translate-x-0 md:max-w-md text-white px-4 py-2.5 rounded-2xl shadow-xl text-sm font-semibold flex items-center gap-2 border transition-all duration-200 toast-mobile-slide-up select-none pointer-events-auto ${
             toastType === 'break'
-              ? 'bg-[#ea580c] border-orange-400 shadow-orange-950/20'
-              : 'bg-emerald-600 border-emerald-400 shadow-emerald-950/20'
+              ? 'bg-[#ea580c] border-orange-400 shadow-orange-950/25'
+              : 'bg-emerald-600 border-emerald-400 shadow-emerald-950/25'
           }`}
         >
           {toastType === 'break' ? (
@@ -955,10 +955,18 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-mono font-bold text-stone-600 dark:text-slate-300">
                         {session.date}
+                        {session.isCrossMidnight && session.endDate && session.endDate !== session.date && (
+                          <span className="text-[10px] ml-1 text-stone-400">~ {session.endDate}</span>
+                        )}
                       </span>
                       {session.startTime && session.startTime !== '--:--' ? (
                         <span className="text-xs font-mono text-stone-400">
                           ({session.startTime} - {session.endTime})
+                          {session.isCrossMidnight && (
+                            <span className="ml-1 text-[10px] font-semibold text-purple-600 dark:text-purple-400">
+                              (跨日)
+                            </span>
+                          )}
                         </span>
                       ) : (
                         <span className="text-xs font-mono text-stone-400">

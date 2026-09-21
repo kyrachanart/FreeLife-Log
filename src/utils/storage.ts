@@ -13,6 +13,7 @@ export const LOCAL_STORAGE_KEYS = {
   SHOW_HOURLY_RATE: 'freelife_show_hourly_rate_v1',
   HOURLY_RATE_VISIBILITY_MAP: 'freelife_hourly_rate_visibility_map_v1',
   CLIENT_COLORS: 'freelife_client_colors_v1',
+  HAS_SEEN_BACKUP_TOAST: 'freelife_has_seen_backup_toast_v1',
 };
 
 export const DEFAULT_RECENT_CATEGORIES = [

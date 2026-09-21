@@ -37,6 +37,7 @@ import {
 } from '../../utils/storage';
 import { soundEffects } from '../../utils/audioAlerts';
 import { sendSystemNotification } from '../../utils/notifications';
+import { getLocalDateString, getLocalTimeString, toISOUTC } from '../../utils/dateUtils';
 
 export interface ActiveTimerSaveState {
   selectedProjectId: string;
@@ -49,6 +50,7 @@ export interface ActiveTimerSaveState {
   accumulatedWorkSeconds: number;
   accumulatedBreakSeconds: number;
   sessionStartTime: string;
+  firstSessionStartedAt?: number | null;
   continuousWorkStartTime: number | null;
 }
 
@@ -128,6 +130,9 @@ export const TimerTab: React.FC<TimerTabProps> = ({
   const [sessionStartTime, setSessionStartTime] = useState<string>(
     savedTimer?.sessionStartTime || '--:--'
   );
+  const [firstSessionStartedAt, setFirstSessionStartedAt] = useState<number | null>(
+    savedTimer?.firstSessionStartedAt || null
+  );
   const [continuousWorkStartTime, setContinuousWorkStartTime] = useState<number | null>(
     savedTimer?.continuousWorkStartTime || null
   );
@@ -184,6 +189,13 @@ export const TimerTab: React.FC<TimerTabProps> = ({
   const [snoozedAlert, setSnoozedAlert] = useState(false);
   const [isTestAlertActive, setIsTestAlertActive] = useState(false);
   const hasTriggered2HourAlertRef = useRef<boolean>(false);
+
+  const showToast = useCallback((msg: string, forcedType?: 'focus' | 'break') => {
+    const isRest = forcedType === 'break' || (!forcedType && (msg.includes('休息') || msg.includes('☕') || timerState === 'resting'));
+    setToastType(isRest ? 'break' : 'focus');
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  }, [timerState]);
 
   // Keep selectedProjectId synchronized if project list changes
   useEffect(() => {
@@ -319,6 +331,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
         accumulatedWorkSeconds,
         accumulatedBreakSeconds,
         sessionStartTime,
+        firstSessionStartedAt,
         continuousWorkStartTime,
       });
     } else {
@@ -334,6 +347,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
     timerProjectId,
     taskNote,
     sessionStartTime,
+    firstSessionStartedAt,
     continuousWorkStartTime,
   ]);
 
@@ -355,7 +369,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
       }
 
       const now = new Date();
-      const endTimeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+      const endTimeStr = getLocalTimeString(now);
       const workMinutes = Math.max(1, Math.round(finalWorkSec / 60));
       const breakMinutes = Math.round(finalBreakSec / 60);
 
@@ -363,15 +377,27 @@ export const TimerTab: React.FC<TimerTabProps> = ({
       const sessionEarnedAmount = Math.round((workMinutes / 60) * projectRate);
       const finalNote = taskNote.trim() || '專注工作';
 
+      const initialStartTimestamp = firstSessionStartedAt || (workStartedAt || (Date.now() - (finalWorkSec + finalBreakSec) * 1000));
+      const startDateObj = new Date(initialStartTimestamp);
+      const startDateStr = getLocalDateString(startDateObj);
+      const endDateStr = getLocalDateString(now);
+      const isCross = startDateStr !== endDateStr;
+      const startStr = sessionStartTime === '--:--' ? getLocalTimeString(startDateObj) : sessionStartTime;
+
       const newSession: TimeSession = {
         id: `sess-${Date.now()}`,
         projectId: targetProj.id,
         projectName: targetProj.name,
         clientName: targetProj.clientName,
         taskDescription: finalNote,
-        date: now.toISOString().split('T')[0],
-        startTime: sessionStartTime === '--:--' ? '09:00' : sessionStartTime,
+        date: startDateStr,
+        startDate: startDateStr,
+        endDate: endDateStr,
+        startTime: startStr,
         endTime: endTimeStr,
+        startISO: toISOUTC(startDateObj),
+        endISO: toISOUTC(now),
+        isCrossMidnight: isCross,
         workDurationMinutes: workMinutes,
         breakDurationMinutes: breakMinutes,
         effectiveHourlyRate: projectRate,
@@ -391,6 +417,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
       setAccumulatedBreakSeconds(0);
       setTaskNote('');
       setSessionStartTime('--:--');
+      setFirstSessionStartedAt(null);
       setContinuousWorkStartTime(null);
       setSnoozedAlert(false);
       localStorage.removeItem(LOCAL_STORAGE_KEYS.TIMER_STATE);
@@ -402,13 +429,15 @@ export const TimerTab: React.FC<TimerTabProps> = ({
       }
     },
     [
-      currentProject,
+      activeTimerProject,
       getLiveWorkSeconds,
       getLiveBreakSeconds,
       taskNote,
       sessionStartTime,
-      isFixed,
+      firstSessionStartedAt,
+      workStartedAt,
       onSaveSession,
+      showToast,
     ]
   );
 
@@ -425,6 +454,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
     setAccumulatedWorkSeconds(0);
     setAccumulatedBreakSeconds(0);
     setSessionStartTime('--:--');
+    setFirstSessionStartedAt(null);
     setContinuousWorkStartTime(null);
     setSnoozedAlert(false);
     localStorage.removeItem(LOCAL_STORAGE_KEYS.TIMER_STATE);
@@ -434,7 +464,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
     if (onComplete) {
       onComplete();
     }
-  }, []);
+  }, [showToast]);
 
   // Format seconds to HH:MM:SS
   const formatTime = useCallback((totalSec: number) => {
@@ -484,13 +514,6 @@ export const TimerTab: React.FC<TimerTabProps> = ({
     currentProject?.name,
     projects,
   ]);
-
-  const showToast = (msg: string, forcedType?: 'focus' | 'break') => {
-    const isRest = forcedType === 'break' || (!forcedType && (msg.includes('休息') || msg.includes('☕') || timerState === 'resting'));
-    setToastType(isRest ? 'break' : 'focus');
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
-  };
 
   const workHoursDecimal = currentWorkSeconds / 3600;
   const breakMinutesTotal = Math.round(currentBreakSeconds / 60);
@@ -592,6 +615,10 @@ export const TimerTab: React.FC<TimerTabProps> = ({
       setContinuousWorkStartTime(now);
     }
 
+    if (!firstSessionStartedAt) {
+      setFirstSessionStartedAt(now);
+    }
+
     if (sessionStartTime === '--:--') {
       const d = new Date();
       setSessionStartTime(
@@ -650,7 +677,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
     }
 
     const now = new Date();
-    const endTimeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    const endTimeStr = getLocalTimeString(now);
     const workMinutes = Math.max(1, Math.round(finalWorkSec / 60));
     const breakMinutes = Math.round(finalBreakSec / 60);
 
@@ -660,15 +687,27 @@ export const TimerTab: React.FC<TimerTabProps> = ({
     // Explicitly write taskNote / Project Memo to the Timesheet session (Default to '專注工作' if empty)
     const finalNote = taskNote.trim() || '專注工作';
 
+    const initialStartTimestamp = firstSessionStartedAt || (workStartedAt || (Date.now() - (finalWorkSec + finalBreakSec) * 1000));
+    const startDateObj = new Date(initialStartTimestamp);
+    const startDateStr = getLocalDateString(startDateObj);
+    const endDateStr = getLocalDateString(now);
+    const isCross = startDateStr !== endDateStr;
+    const startStr = sessionStartTime === '--:--' ? getLocalTimeString(startDateObj) : sessionStartTime;
+
     const newSession: TimeSession = {
       id: `sess-${Date.now()}`,
       projectId: targetProj.id,
       projectName: targetProj.name,
       clientName: targetProj.clientName,
       taskDescription: finalNote,
-      date: now.toISOString().split('T')[0],
-      startTime: sessionStartTime === '--:--' ? '09:00' : sessionStartTime,
+      date: startDateStr,
+      startDate: startDateStr,
+      endDate: endDateStr,
+      startTime: startStr,
       endTime: endTimeStr,
+      startISO: toISOUTC(startDateObj),
+      endISO: toISOUTC(now),
+      isCrossMidnight: isCross,
       workDurationMinutes: workMinutes,
       breakDurationMinutes: breakMinutes,
       effectiveHourlyRate: projectRate,
@@ -688,12 +727,11 @@ export const TimerTab: React.FC<TimerTabProps> = ({
     setAccumulatedBreakSeconds(0);
     setTaskNote('');
     setSessionStartTime('--:--');
+    setFirstSessionStartedAt(null);
     setContinuousWorkStartTime(null);
     setSnoozedAlert(false);
     setIsTestAlertActive(false);
     localStorage.removeItem(LOCAL_STORAGE_KEYS.TIMER_STATE);
-
-    showToast(`✅ 已精確結算 ${workMinutes} 分鐘工時（☕️ 休息時間：${breakMinutes} 分鐘）！`);
   };
 
   // 4. 重構 Reset 觸發與確認函數 (Confirmation Dialog Logic)
@@ -722,6 +760,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
 
     // 清除/重置開始時間
     setSessionStartTime('--:--');
+    setFirstSessionStartedAt(null);
     setContinuousWorkStartTime(null);
     setSnoozedAlert(false);
     setIsTestAlertActive(false);
@@ -770,7 +809,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
     }
 
     const now = new Date();
-    const endTimeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    const endTimeStr = getLocalTimeString(now);
     const workMinutes = Math.max(1, Math.round(finalWorkSec / 60));
     const breakMinutes = Math.round(finalBreakSec / 60);
 
@@ -778,15 +817,27 @@ export const TimerTab: React.FC<TimerTabProps> = ({
     const sessionEarnedAmount = Math.round((workMinutes / 60) * projectRate);
     const finalNote = taskNote.trim() || '專注工作';
 
+    const initialStartTimestamp = firstSessionStartedAt || (workStartedAt || (Date.now() - (finalWorkSec + finalBreakSec) * 1000));
+    const startDateObj = new Date(initialStartTimestamp);
+    const startDateStr = getLocalDateString(startDateObj);
+    const endDateStr = getLocalDateString(now);
+    const isCross = startDateStr !== endDateStr;
+    const startStr = sessionStartTime === '--:--' ? getLocalTimeString(startDateObj) : sessionStartTime;
+
     const newSession: TimeSession = {
       id: `sess-${Date.now()}`,
       projectId: currentProject.id,
       projectName: currentProject.name,
       clientName: currentProject.clientName,
       taskDescription: finalNote,
-      date: now.toISOString().split('T')[0],
-      startTime: sessionStartTime === '--:--' ? '09:00' : sessionStartTime,
+      date: startDateStr,
+      startDate: startDateStr,
+      endDate: endDateStr,
+      startTime: startStr,
       endTime: endTimeStr,
+      startISO: toISOUTC(startDateObj),
+      endISO: toISOUTC(now),
+      isCrossMidnight: isCross,
       workDurationMinutes: workMinutes,
       breakDurationMinutes: breakMinutes,
       effectiveHourlyRate: projectRate,
@@ -805,6 +856,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
     setAccumulatedBreakSeconds(0);
     setTaskNote('');
     setSessionStartTime('--:--');
+    setFirstSessionStartedAt(null);
     setContinuousWorkStartTime(null);
     setSnoozedAlert(false);
     localStorage.removeItem(LOCAL_STORAGE_KEYS.TIMER_STATE);
@@ -836,6 +888,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
     setAccumulatedWorkSeconds(0);
     setAccumulatedBreakSeconds(0);
     setSessionStartTime('--:--');
+    setFirstSessionStartedAt(null);
     setContinuousWorkStartTime(null);
     setSnoozedAlert(false);
     localStorage.removeItem(LOCAL_STORAGE_KEYS.TIMER_STATE);
@@ -887,10 +940,10 @@ export const TimerTab: React.FC<TimerTabProps> = ({
       {toastMessage && (
         <div
           id="timer-tab-toast"
-          className={`fixed top-24 right-6 z-50 text-white px-4 py-2.5 rounded-2xl shadow-xl text-sm font-semibold flex items-center gap-2 border transition-all duration-200 animate-in fade-in slide-in-from-top-2 ${
+          className={`fixed z-50 bottom-20 left-1/2 -translate-x-1/2 max-w-[92vw] w-max md:bottom-auto md:top-20 md:right-6 md:left-auto md:translate-x-0 md:max-w-md text-white px-4 py-2.5 rounded-2xl shadow-xl text-sm font-semibold flex items-center gap-2 border transition-all duration-200 toast-mobile-slide-up select-none pointer-events-auto ${
             toastType === 'break'
-              ? 'bg-[#DB6A35] border-[#ea580c] shadow-orange-950/20'
-              : 'bg-emerald-600 border-emerald-400 shadow-emerald-950/20'
+              ? 'bg-[#DB6A35] border-[#ea580c] shadow-orange-950/25'
+              : 'bg-emerald-600 border-emerald-400 shadow-emerald-950/25'
           }`}
         >
           <span>{toastMessage}</span>

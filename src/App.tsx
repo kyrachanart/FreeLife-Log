@@ -46,6 +46,20 @@ function AppContent() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [timerResetKey, setTimerResetKey] = useState<number>(0);
 
+  // Avatar Pulsing Highlight Visual Guidance State (3 seconds duration)
+  const [isAvatarHighlighted, setIsAvatarHighlighted] = useState<boolean>(false);
+  const avatarHighlightTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  const triggerAvatarHighlight = useCallback(() => {
+    setIsAvatarHighlighted(true);
+    if (avatarHighlightTimeoutRef.current) {
+      clearTimeout(avatarHighlightTimeoutRef.current);
+    }
+    avatarHighlightTimeoutRef.current = setTimeout(() => {
+      setIsAvatarHighlighted(false);
+    }, 3200);
+  }, []);
+
   // Hourly Rate Show/Hide Toggle State (Per-Project State Map)
   const [hourlyRateVisibilityMap, setHourlyRateVisibilityMap] = useState<Record<string, boolean>>(() =>
     loadFromLocalStorage<Record<string, boolean>>(LOCAL_STORAGE_KEYS.HOURLY_RATE_VISIBILITY_MAP, {})
@@ -171,6 +185,10 @@ function AppContent() {
 
   // Add or record new session (updates project total worked hours & saves session)
   const handleSaveSession = useCallback((newSession: TimeSession) => {
+    // Check the historical session count for this specific project in Timesheet
+    const projectExistingCount = sessions.filter((s) => s.projectId === newSession.projectId).length;
+    const isFirstSessionForThisProject = projectExistingCount === 0;
+
     setSessions((prev) => [newSession, ...prev]);
 
     setProjects((prev) =>
@@ -193,8 +211,14 @@ function AppContent() {
       setManualEntryProjectId(newSession.projectId);
     }
 
-    showToast(`✅ 已記錄 ${newSession.workDurationMinutes} 分鐘工時！`);
-  }, [showToast]);
+    // Trigger backup guidance toast and pulsing avatar highlight on the 1st record of each project
+    if (isFirstSessionForThisProject) {
+      triggerAvatarHighlight();
+      showToast('已存入 Timesheet！💡 提示：隨時可點擊右上角頭像作資料備份');
+    } else {
+      showToast('已成功存入 Timesheet！');
+    }
+  }, [sessions, showToast, triggerAvatarHighlight]);
 
   // Delete a session and rollback project worked hours
   const handleDeleteSession = useCallback((sessionId: string) => {
@@ -475,10 +499,12 @@ function AppContent() {
       {toastMessage && (
         <div
           id="app-global-toast"
-          className={`fixed top-24 right-6 z-50 text-white px-4 py-2.5 rounded-2xl shadow-xl text-sm font-semibold flex items-center gap-2 border transition-all duration-200 animate-in fade-in slide-in-from-top-2 ${
+          className={`fixed z-50 bottom-20 left-1/2 -translate-x-1/2 max-w-[92vw] w-max md:bottom-auto md:top-20 md:right-6 md:left-auto md:translate-x-0 md:max-w-md text-white px-4 py-2.5 rounded-2xl shadow-xl text-sm font-semibold flex items-center gap-2 border transition-all duration-200 toast-mobile-slide-up select-none pointer-events-auto ${
             isResting || toastMessage.includes('休息') || toastMessage.includes('☕')
-              ? 'bg-[#DB6A35] border-[#ea580c] shadow-orange-950/20'
-              : 'bg-emerald-600 border-emerald-400 shadow-emerald-950/20'
+              ? 'bg-[#DB6A35] border-[#ea580c] shadow-orange-950/25'
+              : toastMessage.includes('💡') || toastMessage.includes('備份')
+              ? 'bg-amber-600 border-amber-400 shadow-amber-950/25'
+              : 'bg-emerald-600 border-emerald-400 shadow-emerald-950/25'
           }`}
         >
           <span>{toastMessage}</span>
@@ -516,17 +542,29 @@ function AppContent() {
 
           {/* Header Quick Controls */}
           <div className="flex items-center gap-2 shrink-0">
-            {/* User Profile: Main Menu Card */}
+            {/* User Profile: Main Menu Card with Soft Glow Pulse on Backup guidance */}
             <button
+              id="header-user-profile-btn"
               onClick={() => {
                 setProfileModalTab('profile');
                 setIsProfileModalOpen(true);
               }}
-              className="bg-white border border-gray-200 shadow-xs text-gray-800 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-700/70 hover:bg-gray-50 px-3 py-1.5 rounded-xl font-medium text-sm flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 select-none"
-              title="用戶與系統設定"
+              className={`bg-white border shadow-xs text-gray-800 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700/70 hover:bg-gray-50 px-3 py-1.5 rounded-xl font-medium text-sm flex items-center gap-1.5 transition-all cursor-pointer shrink-0 select-none ${
+                isAvatarHighlighted
+                  ? 'animate-avatar-highlight ring-2 ring-amber-400 ring-offset-2 dark:ring-offset-slate-900 border-amber-400 text-amber-950 dark:text-amber-200'
+                  : 'border-gray-200 dark:border-slate-700'
+              }`}
+              title="用戶與系統設定（點擊進行資料備份與設定）"
             >
-              <User size={15} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
-              <span className="truncate max-w-[80px] sm:max-w-none">
+              <User
+                size={15}
+                className={`shrink-0 transition-colors ${
+                  isAvatarHighlighted
+                    ? 'text-amber-500 dark:text-amber-400 scale-110'
+                    : 'text-emerald-600 dark:text-emerald-400'
+                }`}
+              />
+              <span className="truncate max-w-[80px] sm:max-w-none font-semibold">
                 {freelancerProfile.name?.trim() || '用戶'}
               </span>
             </button>
@@ -550,27 +588,27 @@ function AppContent() {
         {showGlobalActiveBanner && (
           <div
             id="global-active-timer-banner"
-            className={`rounded-2xl p-4 border-2 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in duration-200 ${
+            className={`rounded-2xl py-2 px-3 md:p-4 border-2 shadow-sm flex flex-row items-center justify-between gap-2 md:gap-3 animate-in fade-in duration-200 ${
               isResting
                 ? 'bg-orange-50/70 dark:bg-[#281810] border-[#DB6A35]'
                 : 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500/60'
             }`}
           >
-            <div className="flex items-center gap-2.5 min-w-0 flex-1 overflow-hidden">
-              <span className="relative flex h-3 w-3 shrink-0">
+            <div className="flex items-center gap-2 md:gap-2.5 min-w-0 flex-1 overflow-hidden">
+              <span className="relative flex h-2.5 w-2.5 md:h-3 md:w-3 shrink-0">
                 <span
                   className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
                     isResting ? 'bg-[#DB6A35]' : 'bg-emerald-400'
                   }`}
                 />
                 <span
-                  className={`relative inline-flex rounded-full h-3 w-3 ${
+                  className={`relative inline-flex rounded-full h-2.5 w-2.5 md:h-3 md:w-3 ${
                     isResting ? 'bg-[#DB6A35] animate-pulse' : 'bg-emerald-500 animate-pulse'
                   }`}
                 />
               </span>
               <span
-                className={`text-sm sm:text-base font-black truncate ${
+                className={`text-xs md:text-base font-black truncate ${
                   isResting
                     ? 'text-[#9a3412] dark:text-[#fdba74]'
                     : 'text-emerald-950 dark:text-emerald-200'
@@ -591,7 +629,7 @@ function AppContent() {
               type="button"
               id="btn-return-to-active-timer"
               onClick={handleReturnToActiveTimerProject}
-              className={`px-3.5 py-1.5 rounded-xl font-black text-xs text-white transition-all cursor-pointer shadow-xs self-end sm:self-auto shrink-0 flex items-center gap-1 hover:scale-102 active:scale-98 ${
+              className={`px-2.5 py-1 md:px-3.5 md:py-1.5 rounded-xl font-black text-xs text-white transition-all cursor-pointer shadow-xs shrink-0 flex items-center gap-1 hover:scale-102 active:scale-98 ${
                 isResting
                   ? 'bg-[#DB6A35] hover:bg-[#b84a1d]'
                   : 'bg-emerald-600 hover:bg-emerald-700'
