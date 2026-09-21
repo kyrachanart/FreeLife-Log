@@ -11,7 +11,7 @@ export const MarqueeText: React.FC<MarqueeTextProps> = ({
   className = '',
   containerClassName = '',
 }) => {
-  const containerRef = useRef<HTMLSpanElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLSpanElement>(null);
   const [overflowDistance, setOverflowDistance] = useState(0);
 
@@ -19,11 +19,11 @@ export const MarqueeText: React.FC<MarqueeTextProps> = ({
     const checkOverflow = () => {
       if (containerRef.current && textRef.current) {
         const diff = textRef.current.scrollWidth - containerRef.current.clientWidth;
-        setOverflowDistance(diff > 3 ? diff : 0);
+        setOverflowDistance(diff > 2 ? diff : 0);
       }
     };
 
-    // Initial check + delayed check to allow font rendering
+    // Initial check + delayed check to allow font rendering & layout recalculation
     checkOverflow();
     const timeoutId = setTimeout(checkOverflow, 150);
 
@@ -37,9 +37,9 @@ export const MarqueeText: React.FC<MarqueeTextProps> = ({
   const isOverflowing = overflowDistance > 0;
 
   return (
-    <span
+    <div
       ref={containerRef}
-      className={`inline-block overflow-hidden whitespace-nowrap align-bottom ${containerClassName}`}
+      className={`overflow-hidden whitespace-nowrap ${containerClassName}`}
     >
       <span
         ref={textRef}
@@ -48,13 +48,13 @@ export const MarqueeText: React.FC<MarqueeTextProps> = ({
           isOverflowing
             ? ({
                 animation: 'marqueePingPong 8s ease-in-out infinite',
-                '--marquee-offset': `-${overflowDistance + 4}px`,
+                '--marquee-offset': `-${overflowDistance + 6}px`,
               } as React.CSSProperties)
             : undefined
         }
       >
         {text}
       </span>
-    </span>
+    </div>
   );
 };

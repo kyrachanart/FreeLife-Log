@@ -507,13 +507,14 @@ function AppContent() {
         isWarm ? 'bg-stone-100/90 text-stone-800' : 'bg-slate-950 text-slate-100'
       }`}
     >
-      {/* Toast Notification with AnimatePresence */}
+      {/* Toast Notification with AnimatePresence & Swipe-to-Dismiss */}
       <AnimatePresence>
         {toastState && (
           <Toast
             id="app-global-toast"
             message={toastState.message}
             variant={toastState.variant}
+            onClose={() => setToastState(null)}
           />
         )}
       </AnimatePresence>
@@ -615,26 +616,26 @@ function AppContent() {
                 />
               </span>
               <div
-                className={`text-sm sm:text-base font-semibold ${
-                  isResting
-                    ? 'text-stone-800 dark:text-[#fdba74]'
-                    : 'text-stone-800 dark:text-emerald-200'
-                } flex items-center min-w-0 overflow-hidden whitespace-nowrap`}
+                className="flex-1 min-w-0 overflow-hidden"
                 title={
                   isResting
                     ? `正為「${activeTimerProjectName}」計時，休息中`
                     : `正在為「${activeTimerProjectName}」計時中`
                 }
               >
-                <span className="shrink-0">{isResting ? '正為' : '正在為'}</span>
-                <span className="shrink-0 font-bold ml-0.5">「</span>
                 <MarqueeText
-                  text={activeTimerProjectName}
-                  className="font-bold"
-                  containerClassName="max-w-[80px] xs:max-w-[125px] sm:max-w-[220px] md:max-w-[320px]"
+                  text={
+                    isResting
+                      ? `正為「${activeTimerProjectName}」計時，休息中`
+                      : `正在為「${activeTimerProjectName}」計時中`
+                  }
+                  containerClassName="w-full"
+                  className={`text-sm sm:text-base font-semibold ${
+                    isResting
+                      ? 'text-stone-800 dark:text-[#fdba74]'
+                      : 'text-stone-800 dark:text-emerald-200'
+                  }`}
                 />
-                <span className="shrink-0 font-bold mr-0.5">」</span>
-                <span className="shrink-0">{isResting ? '計時，休息中' : '計時中'}</span>
               </div>
             </div>
 
