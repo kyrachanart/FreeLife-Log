@@ -191,6 +191,28 @@ export const TimerTab: React.FC<TimerTabProps> = ({
   const [isTestAlertActive, setIsTestAlertActive] = useState(false);
   const hasTriggered2HourAlertRef = useRef<boolean>(false);
 
+  // Card Glow Feedback on Mode Switch (Focus / Rest)
+  const [cardGlow, setCardGlow] = useState<'working' | 'resting' | null>(null);
+  const cardGlowTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const triggerCardGlow = useCallback((type: 'working' | 'resting') => {
+    if (cardGlowTimeoutRef.current) {
+      clearTimeout(cardGlowTimeoutRef.current);
+    }
+    setCardGlow(type);
+    cardGlowTimeoutRef.current = setTimeout(() => {
+      setCardGlow(null);
+    }, 1500);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (cardGlowTimeoutRef.current) {
+        clearTimeout(cardGlowTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const showToast = useCallback((msg: string, forcedType?: 'focus' | 'break') => {
     const isRest = forcedType === 'break' || (!forcedType && (msg.includes('休息') || msg.includes('☕') || timerState === 'resting'));
     setToastType(isRest ? 'break' : 'focus');
@@ -624,7 +646,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
       );
     }
 
-    showToast('⏱️ 已開始專注開工計時！', 'focus');
+    triggerCardGlow('working');
   };
 
   // 2. 暫停休息 (Pause / Break)
@@ -649,7 +671,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
     setContinuousWorkStartTime(null);
     setIsTestAlertActive(false);
 
-    showToast('☕ 已切換至舒緩休息模式', 'break');
+    triggerCardGlow('resting');
   };
 
   // 3. 完成記錄 (Stop & Save)
@@ -1099,10 +1121,16 @@ export const TimerTab: React.FC<TimerTabProps> = ({
         {/* Main Central Card with Subtle Background Glow & Status Badge */}
         <div
           id="timer-card"
-          className={`transition-all relative overflow-hidden flex flex-col justify-between p-6 rounded-3xl ${
+          className={`transition-all duration-1000 ease-out relative overflow-hidden flex flex-col justify-between p-6 rounded-3xl ${
             timerState === 'resting'
               ? 'border-2 border-amber-400 dark:border-amber-600 bg-white dark:bg-slate-900 shadow-md'
               : 'border-2 border-emerald-500 bg-white dark:bg-slate-900 shadow-md'
+          } ${
+            cardGlow === 'working'
+              ? 'ring-4 ring-emerald-400/80 dark:ring-emerald-500/80 shadow-[0_0_35px_rgba(16,185,129,0.5)]'
+              : cardGlow === 'resting'
+              ? 'ring-4 ring-amber-400/80 dark:ring-amber-500/80 shadow-[0_0_35px_rgba(245,158,11,0.5)]'
+              : 'ring-0 ring-transparent'
           }`}
         >
           {/* 第 1 層 (頂部狀態列) */}
