@@ -137,8 +137,8 @@ export const Toast: React.FC<ToastProps> = ({
       }}
       className={`fixed top-[68px] sm:top-[72px] left-4 right-4 md:left-auto md:right-6 z-50 w-auto md:max-w-md ${borderClass} ${bgClass} backdrop-blur-xl rounded-2xl shadow-xl py-3 px-5 text-base font-medium pointer-events-auto flex items-center justify-center md:justify-start gap-2.5 cursor-grab active:cursor-grabbing select-none`}
     >
-      {leadingIcon && <span className="shrink-0 text-lg select-none pointer-events-none">{leadingIcon}</span>}
-      <span className="leading-snug break-words text-stone-900 dark:text-stone-100 pointer-events-none">{displayMessage}</span>
+      {leadingIcon && <span className="shrink-0 text-lg select-none pointer-events-none flex items-center">{leadingIcon}</span>}
+      <span className="whitespace-nowrap leading-none text-stone-900 dark:text-stone-100 pointer-events-none flex items-center">{displayMessage}</span>
     </motion.div>
   );
 };

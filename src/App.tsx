@@ -222,8 +222,8 @@ function AppContent() {
 
     // 每個 Project 首次存入之雙重引導邏輯
     if (isFirstSaveForProject) {
-      // 觸發 Toast（暖橙色頂邊，約 4 秒後自動消失）：💡已存入 Timesheet！ 提示：隨時可作資料備份
-      showToast('💡已存入 Timesheet！ 提示：隨時可作資料備份', 'amber', 4000);
+      // 觸發 Toast（暖橙色頂邊，約 4 秒後自動消失）：💡 已存入 Timesheet！可在此作備份
+      showToast('💡 已存入 Timesheet！可在此作備份', 'amber', 4000);
       // 同步觸發頭像脈衝動畫（持續 3 秒後自動恢復常態）
       triggerAvatarPulse();
     } else {
