@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { Project, TimeSession, TimerBridge } from '../../types';
 import { useTheme } from '../../ThemeContext';
+import { Toast } from '../common/Toast';
 import { EditProjectModal } from '../modals/EditProjectModal';
 import { TimerRunningInterceptionModal } from '../modals/TimerRunningInterceptionModal';
 import { ProjectSelectDropdown } from '../common/ProjectSelectDropdown';
@@ -422,8 +423,6 @@ export const TimerTab: React.FC<TimerTabProps> = ({
       setSnoozedAlert(false);
       localStorage.removeItem(LOCAL_STORAGE_KEYS.TIMER_STATE);
 
-      showToast(`✅ 已結算並儲存「${targetProj.name}」工時（${workMinutes} 分鐘）！`);
-
       if (onComplete) {
         onComplete();
       }
@@ -437,7 +436,6 @@ export const TimerTab: React.FC<TimerTabProps> = ({
       firstSessionStartedAt,
       workStartedAt,
       onSaveSession,
-      showToast,
     ]
   );
 
@@ -936,14 +934,13 @@ export const TimerTab: React.FC<TimerTabProps> = ({
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
-      {/* Modern Floating Capsule Toast Notification */}
+      {/* Toast Notification */}
       {toastMessage && (
-        <div
+        <Toast
           id="timer-tab-toast"
-          className="fixed z-50 bottom-22 left-1/2 -translate-x-1/2 md:bottom-auto md:top-20 md:right-6 md:left-auto md:translate-x-0 w-max max-w-[92vw] text-white px-4 py-2 rounded-full shadow-lg backdrop-blur-md bg-stone-800/90 dark:bg-stone-800/90 border border-white/15 text-xs sm:text-sm font-medium flex items-center justify-center gap-2 select-none pointer-events-auto toast-mobile-slide-up whitespace-nowrap"
-        >
-          <span>{toastMessage}</span>
-        </div>
+          message={toastMessage}
+          variant={toastType === 'break' ? 'amber' : 'emerald'}
+        />
       )}
 
       {/* 2-Hour Continuous Focus Overlay Pop-up Modal (Fixed Overlay - Does NOT push/shift layout, Timer continues running) */}

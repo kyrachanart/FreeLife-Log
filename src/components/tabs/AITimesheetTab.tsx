@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { Project, TimeSession } from '../../types';
 import { useTheme } from '../../ThemeContext';
+import { Toast } from '../common/Toast';
 import { formatCurrency, formatHourlyRate } from '../../utils/currency';
 import { isSessionOnDate, getLocalDateString } from '../../utils/dateUtils';
 
@@ -266,11 +267,13 @@ export const AITimesheetTab: React.FC<AITimesheetTabProps> = ({
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
-      {/* Modern Floating Capsule Toast Notification */}
+      {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed z-50 bottom-22 left-1/2 -translate-x-1/2 md:bottom-auto md:top-20 md:right-6 md:left-auto md:translate-x-0 w-max max-w-[92vw] text-white px-4 py-2 rounded-full shadow-lg backdrop-blur-md bg-stone-800/90 dark:bg-stone-800/90 border border-white/15 text-xs sm:text-sm font-medium flex items-center justify-center gap-2 select-none pointer-events-auto toast-mobile-slide-up whitespace-nowrap">
-          <span>{toastMessage}</span>
-        </div>
+        <Toast
+          id="ai-tab-toast"
+          message={toastMessage}
+          variant="emerald"
+        />
       )}
 
       {/* Top Header & Actions */}

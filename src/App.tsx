@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { motion } from 'motion/react';
 import {
   Clock,
@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { ThemeProvider, useTheme } from './ThemeContext';
 import { Project, TimeSession, FreelancerProfile, TimerBridge } from './types';
+import { Toast, ToastVariant } from './components/common/Toast';
 import { TimerTab } from './components/tabs/TimerTab';
 import { CalculatorTab } from './components/tabs/CalculatorTab';
 import { ManualEntryTab } from './components/tabs/ManualEntryTab';
@@ -43,22 +44,14 @@ function AppContent() {
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [profileModalTab, setProfileModalTab] = useState<'profile' | 'backup' | 'pwa'>('profile');
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastState, setToastState] = useState<{
+    message: string;
+    variant: ToastVariant;
+  } | null>(null);
+  const [isAvatarPulsing, setIsAvatarPulsing] = useState<boolean>(false);
+  const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const avatarPulseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [timerResetKey, setTimerResetKey] = useState<number>(0);
-
-  // Avatar Pulsing Highlight Visual Guidance State (3 seconds duration)
-  const [isAvatarHighlighted, setIsAvatarHighlighted] = useState<boolean>(false);
-  const avatarHighlightTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
-
-  const triggerAvatarHighlight = useCallback(() => {
-    setIsAvatarHighlighted(true);
-    if (avatarHighlightTimeoutRef.current) {
-      clearTimeout(avatarHighlightTimeoutRef.current);
-    }
-    avatarHighlightTimeoutRef.current = setTimeout(() => {
-      setIsAvatarHighlighted(false);
-    }, 3200);
-  }, []);
 
   // Hourly Rate Show/Hide Toggle State (Per-Project State Map)
   const [hourlyRateVisibilityMap, setHourlyRateVisibilityMap] = useState<Record<string, boolean>>(() =>
@@ -178,16 +171,31 @@ function AppContent() {
     return list;
   }, [projects]);
 
-  const showToast = useCallback((msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
+  const showToast = useCallback((msg: string, variant: ToastVariant = 'emerald', durationMs = 3500) => {
+    if (toastTimeoutRef.current) {
+      clearTimeout(toastTimeoutRef.current);
+    }
+    setToastState({ message: msg, variant });
+    toastTimeoutRef.current = setTimeout(() => {
+      setToastState(null);
+    }, durationMs);
+  }, []);
+
+  const triggerAvatarPulse = useCallback(() => {
+    if (avatarPulseTimeoutRef.current) {
+      clearTimeout(avatarPulseTimeoutRef.current);
+    }
+    setIsAvatarPulsing(true);
+    avatarPulseTimeoutRef.current = setTimeout(() => {
+      setIsAvatarPulsing(false);
+    }, 3000);
   }, []);
 
   // Add or record new session (updates project total worked hours & saves session)
   const handleSaveSession = useCallback((newSession: TimeSession) => {
-    // Check the historical session count for this specific project in Timesheet
-    const projectExistingCount = sessions.filter((s) => s.projectId === newSession.projectId).length;
-    const isFirstSessionForThisProject = projectExistingCount === 0;
+    // 檢查該 Project 在 Timesheet 中的紀錄筆數（存入前若為 0，則存入後筆數為 1）
+    const existingProjectSessions = sessions.filter((s) => s.projectId === newSession.projectId);
+    const isFirstSaveForProject = existingProjectSessions.length === 0;
 
     setSessions((prev) => [newSession, ...prev]);
 
@@ -211,14 +219,17 @@ function AppContent() {
       setManualEntryProjectId(newSession.projectId);
     }
 
-    // Trigger backup guidance toast and pulsing avatar highlight on the 1st record of each project
-    if (isFirstSessionForThisProject) {
-      triggerAvatarHighlight();
-      showToast('💡已存入 Timesheet！可點右上角備份');
+    // 每個 Project 首次存入之雙重引導邏輯
+    if (isFirstSaveForProject) {
+      // 觸發 Toast（暖橙色頂邊，約 4 秒後自動消失）：💡已存入 Timesheet！ 提示：隨時可作資料備份
+      showToast('💡已存入 Timesheet！ 提示：隨時可作資料備份', 'amber', 4000);
+      // 同步觸發頭像脈衝動畫（持續 3 秒後自動恢復常態）
+      triggerAvatarPulse();
     } else {
-      showToast('已成功存入 Timesheet！');
+      // 非首次存入（筆數 > 1）：僅跳出一般綠色主題 Toast：已成功存入 Timesheet！（不觸發頭像脈衝動畫）
+      showToast('已成功存入 Timesheet！', 'emerald', 3500);
     }
-  }, [sessions, showToast, triggerAvatarHighlight]);
+  }, [sessions, showToast, triggerAvatarPulse]);
 
   // Delete a session and rollback project worked hours
   const handleDeleteSession = useCallback((sessionId: string) => {
@@ -495,14 +506,13 @@ function AppContent() {
         isWarm ? 'bg-stone-100/90 text-stone-800' : 'bg-slate-950 text-slate-100'
       }`}
     >
-      {/* Modern Floating Capsule Toast Notification */}
-      {toastMessage && (
-        <div
+      {/* Toast Notification */}
+      {toastState && (
+        <Toast
           id="app-global-toast"
-          className="fixed z-50 bottom-22 left-1/2 -translate-x-1/2 md:bottom-auto md:top-20 md:right-6 md:left-auto md:translate-x-0 w-max max-w-[92vw] text-white px-4 py-2 rounded-full shadow-lg backdrop-blur-md bg-stone-800/90 dark:bg-stone-800/90 border border-white/15 text-xs sm:text-sm font-medium flex items-center justify-center gap-2 select-none pointer-events-auto toast-mobile-slide-up whitespace-nowrap"
-        >
-          <span>{toastMessage}</span>
-        </div>
+          message={toastState.message}
+          variant={toastState.variant}
+        />
       )}
 
       {/* Sticky Top Header with Dedicated Tab Bar */}
@@ -536,29 +546,29 @@ function AppContent() {
 
           {/* Header Quick Controls */}
           <div className="flex items-center gap-2 shrink-0">
-            {/* User Profile: Main Menu Card with Soft Glow Pulse on Backup guidance */}
+            {/* User Profile: Main Menu Card */}
             <button
               id="header-user-profile-btn"
               onClick={() => {
                 setProfileModalTab('profile');
                 setIsProfileModalOpen(true);
               }}
-              className={`bg-white border shadow-xs text-gray-800 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700/70 hover:bg-gray-50 px-3 py-1.5 rounded-xl font-medium text-sm flex items-center gap-1.5 transition-all cursor-pointer shrink-0 select-none ${
-                isAvatarHighlighted
-                  ? 'animate-avatar-highlight ring-2 ring-amber-400 ring-offset-2 dark:ring-offset-slate-900 border-amber-400 text-amber-950 dark:text-amber-200'
-                  : 'border-gray-200 dark:border-slate-700'
+              className={`bg-white border border-gray-200 shadow-xs text-gray-800 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-700/70 hover:bg-gray-50 px-3 py-1.5 rounded-xl font-medium text-sm flex items-center gap-1.5 transition-all cursor-pointer shrink-0 select-none ${
+                isAvatarPulsing
+                  ? 'ring-2 ring-amber-400 ring-offset-2 ring-offset-stone-50 dark:ring-offset-slate-900 animate-pulse animate-avatar-highlight'
+                  : ''
               }`}
-              title="用戶與系統設定（點擊進行資料備份與設定）"
+              title="用戶與系統設定"
             >
               <User
                 size={15}
                 className={`shrink-0 transition-colors ${
-                  isAvatarHighlighted
-                    ? 'text-amber-500 dark:text-amber-400 scale-110'
+                  isAvatarPulsing
+                    ? 'text-amber-500 dark:text-amber-400'
                     : 'text-emerald-600 dark:text-emerald-400'
                 }`}
               />
-              <span className="truncate max-w-[80px] sm:max-w-none font-semibold">
+              <span className="truncate max-w-[80px] sm:max-w-none">
                 {freelancerProfile.name?.trim() || '用戶'}
               </span>
             </button>
@@ -582,40 +592,40 @@ function AppContent() {
         {showGlobalActiveBanner && (
           <div
             id="global-active-timer-banner"
-            className={`rounded-2xl py-2 px-3 md:p-4 border-2 shadow-sm flex flex-row items-center justify-between gap-2 md:gap-3 animate-in fade-in duration-200 ${
+            className={`rounded-2xl py-3 px-4 border-2 shadow-sm flex items-center justify-between gap-3 animate-in fade-in duration-200 ${
               isResting
-                ? 'bg-orange-50/70 dark:bg-[#281810] border-[#DB6A35]'
-                : 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500/60'
+                ? 'bg-orange-50/90 dark:bg-[#281810]/90 border-[#DB6A35]'
+                : 'bg-emerald-50/90 dark:bg-emerald-950/40 border-emerald-500'
             }`}
           >
-            <div className="flex items-center gap-2 md:gap-2.5 min-w-0 flex-1 overflow-hidden">
-              <span className="relative flex h-2.5 w-2.5 md:h-3 md:w-3 shrink-0">
+            <div className="flex items-center gap-2.5 min-w-0 flex-1 overflow-hidden">
+              <span className="relative flex h-3 w-3 shrink-0">
                 <span
                   className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
                     isResting ? 'bg-[#DB6A35]' : 'bg-emerald-400'
                   }`}
                 />
                 <span
-                  className={`relative inline-flex rounded-full h-2.5 w-2.5 md:h-3 md:w-3 ${
+                  className={`relative inline-flex rounded-full h-3 w-3 ${
                     isResting ? 'bg-[#DB6A35] animate-pulse' : 'bg-emerald-500 animate-pulse'
                   }`}
                 />
               </span>
               <span
-                className={`text-sm sm:text-base font-semibold truncate ${
+                className={`text-base font-semibold truncate ${
                   isResting
-                    ? 'text-[#9a3412] dark:text-[#fdba74]'
-                    : 'text-emerald-950 dark:text-emerald-200'
+                    ? 'text-stone-800 dark:text-[#fdba74]'
+                    : 'text-stone-800 dark:text-emerald-200'
                 }`}
                 title={
                   isResting
-                    ? `☕ 休息中 (${timerBridge?.elapsedFormatted || '00:00:00'})`
-                    : `🟢 工作中 (${timerBridge?.elapsedFormatted || '00:00:00'})${activeTimerProjectName ? ` · ${activeTimerProjectName}` : ''}`
+                    ? `正為「${activeTimerProjectName}」計時，休息中`
+                    : `正在為「${activeTimerProjectName}」計時中`
                 }
               >
                 {isResting
-                  ? `☕ 休息中 (${timerBridge?.elapsedFormatted || '00:00:00'})`
-                  : `🟢 工作中 (${timerBridge?.elapsedFormatted || '00:00:00'})${activeTimerProjectName ? ` · ${activeTimerProjectName}` : ''}`}
+                  ? `正為「${activeTimerProjectName}」計時，休息中`
+                  : `正在為「${activeTimerProjectName}」計時中`}
               </span>
             </div>
 
@@ -623,7 +633,7 @@ function AppContent() {
               type="button"
               id="btn-return-to-active-timer"
               onClick={handleReturnToActiveTimerProject}
-              className={`py-2 px-3.5 sm:px-4 sm:py-2 rounded-xl font-medium text-sm text-white transition-all cursor-pointer shadow-xs shrink-0 flex items-center justify-center gap-1.5 hover:scale-102 active:scale-98 min-h-[40px] touch-manipulation ${
+              className={`py-2.5 px-4 rounded-xl font-semibold text-sm text-white transition-all cursor-pointer shadow-xs shrink-0 flex items-center gap-1.5 hover:scale-102 active:scale-98 min-h-[44px] ${
                 isResting
                   ? 'bg-[#DB6A35] hover:bg-[#b84a1d]'
                   : 'bg-emerald-600 hover:bg-emerald-700'
