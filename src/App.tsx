@@ -214,7 +214,7 @@ function AppContent() {
     // Trigger backup guidance toast and pulsing avatar highlight on the 1st record of each project
     if (isFirstSessionForThisProject) {
       triggerAvatarHighlight();
-      showToast('已存入 Timesheet！💡 提示：隨時可點擊右上角頭像作資料備份');
+      showToast('💡已存入 Timesheet！可點右上角備份');
     } else {
       showToast('已成功存入 Timesheet！');
     }
@@ -495,17 +495,11 @@ function AppContent() {
         isWarm ? 'bg-stone-100/90 text-stone-800' : 'bg-slate-950 text-slate-100'
       }`}
     >
-      {/* Toast Notification */}
+      {/* Modern Floating Capsule Toast Notification */}
       {toastMessage && (
         <div
           id="app-global-toast"
-          className={`fixed z-50 bottom-24 left-4 right-4 md:left-auto md:right-6 md:top-20 md:bottom-auto max-w-md w-auto mx-auto text-white p-3.5 md:px-4 md:py-2.5 rounded-2xl shadow-xl text-sm font-medium flex items-center justify-center sm:justify-start gap-2 border transition-all duration-200 toast-mobile-slide-up select-none pointer-events-auto leading-snug break-words ${
-            isResting || toastMessage.includes('休息') || toastMessage.includes('☕')
-              ? 'bg-[#DB6A35] border-[#ea580c] shadow-orange-950/25'
-              : toastMessage.includes('💡') || toastMessage.includes('備份')
-              ? 'bg-amber-600 border-amber-400 shadow-amber-950/25'
-              : 'bg-emerald-600 border-emerald-400 shadow-emerald-950/25'
-          }`}
+          className="fixed z-50 bottom-22 left-1/2 -translate-x-1/2 md:bottom-auto md:top-20 md:right-6 md:left-auto md:translate-x-0 w-max max-w-[92vw] text-white px-4 py-2 rounded-full shadow-lg backdrop-blur-md bg-stone-800/90 dark:bg-stone-800/90 border border-white/15 text-xs sm:text-sm font-medium flex items-center justify-center gap-2 select-none pointer-events-auto toast-mobile-slide-up whitespace-nowrap"
         >
           <span>{toastMessage}</span>
         </div>
@@ -608,20 +602,20 @@ function AppContent() {
                 />
               </span>
               <span
-                className={`text-xs md:text-base font-black truncate ${
+                className={`text-sm sm:text-base font-semibold truncate ${
                   isResting
                     ? 'text-[#9a3412] dark:text-[#fdba74]'
                     : 'text-emerald-950 dark:text-emerald-200'
                 }`}
                 title={
                   isResting
-                    ? `正在休息中 (${timerBridge?.elapsedFormatted || '00:00:00'})`
-                    : `正在為「${activeTimerProjectName}」計時中`
+                    ? `☕ 休息中 (${timerBridge?.elapsedFormatted || '00:00:00'})`
+                    : `🟢 工作中 (${timerBridge?.elapsedFormatted || '00:00:00'})${activeTimerProjectName ? ` · ${activeTimerProjectName}` : ''}`
                 }
               >
                 {isResting
-                  ? `正在休息中 (${timerBridge?.elapsedFormatted || '00:00:00'})`
-                  : `正在為「${activeTimerProjectName}」計時中`}
+                  ? `☕ 休息中 (${timerBridge?.elapsedFormatted || '00:00:00'})`
+                  : `🟢 工作中 (${timerBridge?.elapsedFormatted || '00:00:00'})${activeTimerProjectName ? ` · ${activeTimerProjectName}` : ''}`}
               </span>
             </div>
 

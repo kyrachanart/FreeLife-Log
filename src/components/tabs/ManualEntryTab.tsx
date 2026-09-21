@@ -690,20 +690,16 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto pb-28">
-      {/* Toast Notification */}
+      {/* Modern Floating Capsule Toast Notification */}
       {toastMessage && (
         <div
           id="manual-entry-tab-toast"
-          className={`fixed z-50 bottom-24 left-4 right-4 md:left-auto md:right-6 md:top-20 md:bottom-auto max-w-md w-auto mx-auto text-white p-3.5 md:px-4 md:py-2.5 rounded-2xl shadow-xl text-sm font-medium flex items-center justify-center sm:justify-start gap-2 border transition-all duration-200 toast-mobile-slide-up select-none pointer-events-auto leading-snug break-words ${
-            toastType === 'break'
-              ? 'bg-[#ea580c] border-orange-400 shadow-orange-950/25'
-              : 'bg-emerald-600 border-emerald-400 shadow-emerald-950/25'
-          }`}
+          className="fixed z-50 bottom-22 left-1/2 -translate-x-1/2 md:bottom-auto md:top-20 md:right-6 md:left-auto md:translate-x-0 w-max max-w-[92vw] text-white px-4 py-2 rounded-full shadow-lg backdrop-blur-md bg-stone-800/90 dark:bg-stone-800/90 border border-white/15 text-xs sm:text-sm font-medium flex items-center justify-center gap-2 select-none pointer-events-auto toast-mobile-slide-up whitespace-nowrap"
         >
           {toastType === 'break' ? (
-            <Coffee size={16} className="text-white shrink-0" />
+            <Coffee size={15} className="text-amber-400 shrink-0" />
           ) : (
-            <CheckCircle2 size={16} className="text-white shrink-0" />
+            <CheckCircle2 size={15} className="text-emerald-400 shrink-0" />
           )}
           <span>{toastMessage}</span>
         </div>
