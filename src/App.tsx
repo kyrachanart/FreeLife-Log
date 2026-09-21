@@ -598,7 +598,7 @@ function AppContent() {
                 : 'bg-emerald-50/90 dark:bg-emerald-950/40 border-emerald-500'
             }`}
           >
-            <div className="flex items-center gap-2.5 min-w-0 flex-1 overflow-hidden">
+            <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1 pr-2 overflow-hidden">
               <span className="relative flex h-3 w-3 shrink-0">
                 <span
                   className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
@@ -611,29 +611,31 @@ function AppContent() {
                   }`}
                 />
               </span>
-              <span
-                className={`text-base font-semibold truncate ${
+              <div
+                className={`text-sm sm:text-base font-semibold ${
                   isResting
                     ? 'text-stone-800 dark:text-[#fdba74]'
                     : 'text-stone-800 dark:text-emerald-200'
-                }`}
+                } flex items-center min-w-0 overflow-hidden`}
                 title={
                   isResting
                     ? `正為「${activeTimerProjectName}」計時，休息中`
                     : `正在為「${activeTimerProjectName}」計時中`
                 }
               >
-                {isResting
-                  ? `正為「${activeTimerProjectName}」計時，休息中`
-                  : `正在為「${activeTimerProjectName}」計時中`}
-              </span>
+                <span className="shrink-0">{isResting ? '正為' : '正在為'}</span>
+                <span className="truncate max-w-[90px] xs:max-w-[130px] sm:max-w-[240px] inline-block font-bold mx-0.5">
+                  「{activeTimerProjectName}」
+                </span>
+                <span className="shrink-0">{isResting ? '計時，休息中' : '計時中'}</span>
+              </div>
             </div>
 
             <button
               type="button"
               id="btn-return-to-active-timer"
               onClick={handleReturnToActiveTimerProject}
-              className={`py-2.5 px-4 rounded-xl font-semibold text-sm text-white transition-all cursor-pointer shadow-xs shrink-0 flex items-center gap-1.5 hover:scale-102 active:scale-98 min-h-[44px] ${
+              className={`py-2 px-3 sm:py-2.5 sm:px-4 rounded-xl font-semibold text-xs sm:text-sm text-white transition-all cursor-pointer shadow-xs shrink-0 flex items-center gap-1 hover:scale-102 active:scale-98 min-h-[38px] sm:min-h-[44px] ${
                 isResting
                   ? 'bg-[#DB6A35] hover:bg-[#b84a1d]'
                   : 'bg-emerald-600 hover:bg-emerald-700'
