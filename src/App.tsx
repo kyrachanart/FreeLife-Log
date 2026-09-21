@@ -499,7 +499,7 @@ function AppContent() {
       {toastMessage && (
         <div
           id="app-global-toast"
-          className={`fixed z-50 bottom-20 left-1/2 -translate-x-1/2 max-w-[92vw] w-max md:bottom-auto md:top-20 md:right-6 md:left-auto md:translate-x-0 md:max-w-md text-white px-4 py-2.5 rounded-2xl shadow-xl text-sm font-semibold flex items-center gap-2 border transition-all duration-200 toast-mobile-slide-up select-none pointer-events-auto ${
+          className={`fixed z-50 bottom-24 left-4 right-4 md:left-auto md:right-6 md:top-20 md:bottom-auto max-w-md w-auto mx-auto text-white p-3.5 md:px-4 md:py-2.5 rounded-2xl shadow-xl text-sm font-medium flex items-center justify-center sm:justify-start gap-2 border transition-all duration-200 toast-mobile-slide-up select-none pointer-events-auto leading-snug break-words ${
             isResting || toastMessage.includes('休息') || toastMessage.includes('☕')
               ? 'bg-[#DB6A35] border-[#ea580c] shadow-orange-950/25'
               : toastMessage.includes('💡') || toastMessage.includes('備份')
@@ -629,7 +629,7 @@ function AppContent() {
               type="button"
               id="btn-return-to-active-timer"
               onClick={handleReturnToActiveTimerProject}
-              className={`px-2.5 py-1 md:px-3.5 md:py-1.5 rounded-xl font-black text-xs text-white transition-all cursor-pointer shadow-xs shrink-0 flex items-center gap-1 hover:scale-102 active:scale-98 ${
+              className={`py-2 px-3.5 sm:px-4 sm:py-2 rounded-xl font-medium text-sm text-white transition-all cursor-pointer shadow-xs shrink-0 flex items-center justify-center gap-1.5 hover:scale-102 active:scale-98 min-h-[40px] touch-manipulation ${
                 isResting
                   ? 'bg-[#DB6A35] hover:bg-[#b84a1d]'
                   : 'bg-emerald-600 hover:bg-emerald-700'

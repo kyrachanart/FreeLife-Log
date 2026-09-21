@@ -268,7 +268,7 @@ export const AITimesheetTab: React.FC<AITimesheetTabProps> = ({
     <div className="space-y-6 max-w-4xl mx-auto">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed z-50 bottom-20 left-1/2 -translate-x-1/2 max-w-[92vw] w-max md:bottom-auto md:top-20 md:right-6 md:left-auto md:translate-x-0 md:max-w-md px-4 py-2.5 rounded-2xl bg-emerald-600 text-white shadow-xl text-sm font-semibold flex items-center gap-2 border border-emerald-400 toast-mobile-slide-up select-none pointer-events-auto">
+        <div className="fixed z-50 bottom-24 left-4 right-4 md:left-auto md:right-6 md:top-20 md:bottom-auto max-w-md w-auto mx-auto text-white p-3.5 md:px-4 md:py-2.5 rounded-2xl shadow-xl text-sm font-medium flex items-center justify-center sm:justify-start gap-2 border bg-emerald-600 border-emerald-400 shadow-emerald-950/25 transition-all duration-200 toast-mobile-slide-up select-none pointer-events-auto leading-snug break-words">
           <span>{toastMessage}</span>
         </div>
       )}
