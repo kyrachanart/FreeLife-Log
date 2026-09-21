@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   Clock,
   BarChart3,
@@ -18,6 +18,7 @@ import {
 import { ThemeProvider, useTheme } from './ThemeContext';
 import { Project, TimeSession, FreelancerProfile, TimerBridge } from './types';
 import { Toast, ToastVariant } from './components/common/Toast';
+import { MarqueeText } from './components/common/MarqueeText';
 import { TimerTab } from './components/tabs/TimerTab';
 import { CalculatorTab } from './components/tabs/CalculatorTab';
 import { ManualEntryTab } from './components/tabs/ManualEntryTab';
@@ -506,14 +507,16 @@ function AppContent() {
         isWarm ? 'bg-stone-100/90 text-stone-800' : 'bg-slate-950 text-slate-100'
       }`}
     >
-      {/* Toast Notification */}
-      {toastState && (
-        <Toast
-          id="app-global-toast"
-          message={toastState.message}
-          variant={toastState.variant}
-        />
-      )}
+      {/* Toast Notification with AnimatePresence */}
+      <AnimatePresence>
+        {toastState && (
+          <Toast
+            id="app-global-toast"
+            message={toastState.message}
+            variant={toastState.variant}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Sticky Top Header with Dedicated Tab Bar */}
       <header
@@ -616,7 +619,7 @@ function AppContent() {
                   isResting
                     ? 'text-stone-800 dark:text-[#fdba74]'
                     : 'text-stone-800 dark:text-emerald-200'
-                } flex items-center min-w-0 overflow-hidden`}
+                } flex items-center min-w-0 overflow-hidden whitespace-nowrap`}
                 title={
                   isResting
                     ? `正為「${activeTimerProjectName}」計時，休息中`
@@ -624,9 +627,13 @@ function AppContent() {
                 }
               >
                 <span className="shrink-0">{isResting ? '正為' : '正在為'}</span>
-                <span className="truncate max-w-[90px] xs:max-w-[130px] sm:max-w-[240px] inline-block font-bold mx-0.5">
-                  「{activeTimerProjectName}」
-                </span>
+                <span className="shrink-0 font-bold ml-0.5">「</span>
+                <MarqueeText
+                  text={activeTimerProjectName}
+                  className="font-bold"
+                  containerClassName="max-w-[80px] xs:max-w-[125px] sm:max-w-[220px] md:max-w-[320px]"
+                />
+                <span className="shrink-0 font-bold mr-0.5">」</span>
                 <span className="shrink-0">{isResting ? '計時，休息中' : '計時中'}</span>
               </div>
             </div>

@@ -30,3 +30,16 @@
   animation: avatarGlowPulse 1s ease-in-out 3;
 }
 
+@keyframes marqueePingPong {
+  0%, 20% {
+    transform: translateX(0);
+  }
+  70%, 85% {
+    transform: translateX(var(--marquee-offset, -100px));
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+
