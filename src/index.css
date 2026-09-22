@@ -42,4 +42,16 @@
   }
 }
 
+@keyframes marquee {
+  0%, 15% {
+    transform: translateX(0);
+  }
+  75%, 88% {
+    transform: translateX(var(--marquee-offset, -100%));
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
 

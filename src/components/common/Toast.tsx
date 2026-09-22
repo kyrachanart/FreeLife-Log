@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { useTheme } from '../../ThemeContext';
 
@@ -56,6 +56,31 @@ export const Toast: React.FC<ToastProps> = ({
     displayMessage = message;
   }
 
+  // Conditional Auto-Marquee: Check if text width exceeds available container width
+  const textContainerRef = useRef<HTMLDivElement>(null);
+  const textSpanRef = useRef<HTMLSpanElement>(null);
+  const [overflowDistance, setOverflowDistance] = useState(0);
+
+  useEffect(() => {
+    const checkOverflow = () => {
+      if (textContainerRef.current && textSpanRef.current) {
+        const diff = textSpanRef.current.scrollWidth - textContainerRef.current.clientWidth;
+        setOverflowDistance(diff > 2 ? diff : 0);
+      }
+    };
+
+    checkOverflow();
+    const rafId = requestAnimationFrame(checkOverflow);
+    const timeoutId = setTimeout(checkOverflow, 120);
+
+    window.addEventListener('resize', checkOverflow);
+    return () => {
+      cancelAnimationFrame(rafId);
+      clearTimeout(timeoutId);
+      window.removeEventListener('resize', checkOverflow);
+    };
+  }, [displayMessage]);
+
   // Touch Gesture tracking: Swipe Up (DeltaY < -30px) & Swipe Right (DeltaX > 40px)
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -108,6 +133,8 @@ export const Toast: React.FC<ToastProps> = ({
     touchStartRef.current = null;
   };
 
+  const isOverflowing = overflowDistance > 0;
+
   return (
     <motion.div
       id={id}
@@ -135,10 +162,32 @@ export const Toast: React.FC<ToastProps> = ({
         transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease',
         touchAction: 'none',
       }}
-      className={`fixed top-[68px] sm:top-[72px] left-4 right-4 md:left-auto md:right-6 z-50 w-auto md:max-w-md ${borderClass} ${bgClass} backdrop-blur-xl rounded-2xl shadow-xl py-3 px-5 text-base font-medium pointer-events-auto flex items-center justify-center md:justify-start gap-2.5 cursor-grab active:cursor-grabbing select-none`}
+      className={`fixed top-[68px] sm:top-[72px] left-4 right-4 md:left-auto md:right-6 z-50 w-auto max-w-[calc(100vw-32px)] md:max-w-md overflow-hidden ${borderClass} ${bgClass} backdrop-blur-xl rounded-2xl shadow-xl py-3 px-4 text-base font-medium pointer-events-auto flex items-center justify-center md:justify-start gap-2.5 cursor-grab active:cursor-grabbing select-none`}
     >
-      {leadingIcon && <span className="shrink-0 text-lg select-none pointer-events-none flex items-center">{leadingIcon}</span>}
-      <span className="whitespace-nowrap leading-none text-stone-900 dark:text-stone-100 pointer-events-none flex items-center">{displayMessage}</span>
+      {leadingIcon && (
+        <span className="shrink-0 text-lg select-none pointer-events-none flex items-center">
+          {leadingIcon}
+        </span>
+      )}
+      <div
+        ref={textContainerRef}
+        className="flex-1 min-w-0 overflow-hidden whitespace-nowrap flex items-center"
+      >
+        <span
+          ref={textSpanRef}
+          className="inline-block whitespace-nowrap leading-none text-stone-900 dark:text-stone-100 pointer-events-none"
+          style={
+            isOverflowing
+              ? ({
+                  animation: 'marquee 8s linear infinite',
+                  '--marquee-offset': `-${overflowDistance + 8}px`,
+                } as React.CSSProperties)
+              : undefined
+          }
+        >
+          {displayMessage}
+        </span>
+      </div>
     </motion.div>
   );
 };

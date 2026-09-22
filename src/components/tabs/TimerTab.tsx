@@ -969,7 +969,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
       {isTwoHourAlertActive && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
           <div
-            className={`w-full max-w-md rounded-3xl p-6 sm:p-7 border-2 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200 animate-gentle-pulse-glow ${
+            className={`w-full max-w-md max-w-[calc(100vw-32px)] overflow-hidden rounded-3xl p-6 sm:p-7 border-2 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200 animate-gentle-pulse-glow ${
               isWarm
                 ? 'bg-white border-amber-400 text-stone-900'
                 : 'bg-slate-900 border-amber-500 text-slate-100'
