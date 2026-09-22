@@ -75,6 +75,7 @@ export interface FreelancerProfile {
   email: string;
   paymentInfo: string; // FPS / 轉數快 / 銀行帳號
   phone?: string;
+  defaultCurrency?: string; // e.g. 'HKD', 'USD', 'TWD', etc.
 }
 
 export interface ClientProfile {

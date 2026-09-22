@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Edit2, X, Briefcase, DollarSign, Clock, Tag, Palette, Check } from 'lucide-react';
+import { Edit2, X, Briefcase, DollarSign, Clock, Tag, Palette, Check, Coins } from 'lucide-react';
 import { Project, ProjectFeeType } from '../../types';
 import { useTheme } from '../../ThemeContext';
 import { getRecentCategories, saveRecentCategory } from '../../utils/storage';
 import { getAvailableClientColors, getClientColor, saveClientColor } from '../../utils/clientColors';
-import { formatCurrency, formatHourlyRate } from '../../utils/currency';
+import { SUPPORTED_CURRENCIES, DEFAULT_CURRENCY, getCurrencySymbol, formatCurrency, formatHourlyRate } from '../../utils/currency';
 
 interface EditProjectModalProps {
   isOpen: boolean;
@@ -12,6 +12,7 @@ interface EditProjectModalProps {
   project: Project | null;
   onUpdateProject: (project: Project) => void;
   existingClients?: string[];
+  defaultCurrency?: string;
 }
 
 export const EditProjectModal: React.FC<EditProjectModalProps> = ({
@@ -20,6 +21,7 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
   project,
   onUpdateProject,
   existingClients = [],
+  defaultCurrency = DEFAULT_CURRENCY,
 }) => {
   const { theme } = useTheme();
   const isWarm = theme === 'warm';
@@ -33,6 +35,7 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
   const [clientColor, setClientColor] = useState<string>('#E11D48');
   const [category, setCategory] = useState('');
   const [recentCategories, setRecentCategories] = useState<string[]>([]);
+  const [currency, setCurrency] = useState<string>(defaultCurrency);
   const [totalContractAmount, setTotalContractAmount] = useState<number | string>(25000);
   const [estimatedHours, setEstimatedHours] = useState<number | string>('');
 
@@ -77,6 +80,7 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
 
       setClientColor(project.clientColor || project.color || getClientColor(projClient));
       setCategory(project.category || '');
+      setCurrency(project.currency || defaultCurrency || DEFAULT_CURRENCY);
       setRecentCategories(getRecentCategories().slice(0, 5));
       setTotalContractAmount(project.totalContractAmount ?? 0);
       setEstimatedHours(
@@ -85,7 +89,7 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
           : ''
       );
     }
-  }, [project, isOpen, existingClients]);
+  }, [project, isOpen, existingClients, defaultCurrency]);
 
   if (!isOpen || !project) return null;
 
@@ -112,6 +116,7 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
       clientColor: finalColor,
       color: finalColor,
       category: category.trim() || 'General',
+      currency: currency.trim() || project.currency || defaultCurrency || 'HKD',
       feeType: 'fixed',
       totalContractAmount: parsedContractAmount,
       targetHourlyRate: 0,
@@ -320,44 +325,74 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          {/* 財務與工時預算設定 */}
+          <div className="space-y-3">
             <div>
-              <label className="block text-xs font-bold text-stone-500 dark:text-slate-400 mb-1">
-                專案合約總額 (HKD) <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="number"
-                min="0"
-                step="any"
-                required
-                value={totalContractAmount}
-                onFocus={(e) => e.target.select()}
-                onChange={(e) => setTotalContractAmount(e.target.value === '' ? '' : e.target.value)}
-                className={`w-full text-xs sm:text-sm font-mono font-bold rounded-xl px-3.5 py-2.5 border outline-none ${
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-bold text-stone-500 dark:text-slate-400 flex items-center gap-1.5">
+                  <Coins size={13} className="text-emerald-600 dark:text-emerald-400" />
+                  <span>專案幣別 (Currency) <span className="text-rose-500">*</span></span>
+                </label>
+                <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                  {currency} ({getCurrencySymbol(currency)})
+                </span>
+              </div>
+              <select
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value)}
+                className={`w-full text-xs sm:text-sm font-bold rounded-xl px-3.5 py-2.5 border outline-none cursor-pointer ${
                   isWarm
                     ? 'bg-stone-50 border-stone-300 text-stone-900 focus:ring-2 focus:ring-emerald-500'
                     : 'bg-slate-950 border-slate-700 text-slate-100 focus:ring-2 focus:ring-emerald-500'
                 }`}
-              />
+              >
+                {SUPPORTED_CURRENCIES.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
             </div>
-            <div>
-              <label className="block text-xs font-bold text-stone-500 dark:text-slate-400 mb-1">
-                建議總工時上限 (小時)
-              </label>
-              <input
-                type="number"
-                min="0"
-                step="any"
-                placeholder="例：35"
-                value={estimatedHours}
-                onFocus={(e) => e.target.select()}
-                onChange={(e) => setEstimatedHours(e.target.value === '' ? '' : e.target.value)}
-                className={`w-full text-xs sm:text-sm font-mono font-bold rounded-xl px-3.5 py-2.5 border outline-none ${
-                  isWarm
-                    ? 'bg-stone-50 border-stone-300 text-stone-900 focus:ring-2 focus:ring-emerald-500'
-                    : 'bg-slate-950 border-slate-700 text-slate-100 focus:ring-2 focus:ring-emerald-500'
-                }`}
-              />
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-stone-500 dark:text-slate-400 mb-1">
+                  專案合約總額 ({currency}) <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  required
+                  value={totalContractAmount}
+                  onFocus={(e) => e.target.select()}
+                  onChange={(e) => setTotalContractAmount(e.target.value === '' ? '' : e.target.value)}
+                  className={`w-full text-xs sm:text-sm font-mono font-bold rounded-xl px-3.5 py-2.5 border outline-none ${
+                    isWarm
+                      ? 'bg-stone-50 border-stone-300 text-stone-900 focus:ring-2 focus:ring-emerald-500'
+                      : 'bg-slate-950 border-slate-700 text-slate-100 focus:ring-2 focus:ring-emerald-500'
+                  }`}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-stone-500 dark:text-slate-400 mb-1">
+                  建議總工時上限 (小時)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  placeholder="例：35"
+                  value={estimatedHours}
+                  onFocus={(e) => e.target.select()}
+                  onChange={(e) => setEstimatedHours(e.target.value === '' ? '' : e.target.value)}
+                  className={`w-full text-xs sm:text-sm font-mono font-bold rounded-xl px-3.5 py-2.5 border outline-none ${
+                    isWarm
+                      ? 'bg-stone-50 border-stone-300 text-stone-900 focus:ring-2 focus:ring-emerald-500'
+                      : 'bg-slate-950 border-slate-700 text-slate-100 focus:ring-2 focus:ring-emerald-500'
+                  }`}
+                />
+              </div>
             </div>
           </div>
 
@@ -367,11 +402,11 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
               <span className="flex items-center gap-1.5 font-bold">
                 <span>💡 預估目標時薪：</span>
                 <span className="font-mono text-sm font-black text-emerald-700 dark:text-emerald-300">
-                  {formatHourlyRate((Number(totalContractAmount) || 0) / Number(estimatedHours))}
+                  {formatHourlyRate((Number(totalContractAmount) || 0) / Number(estimatedHours), currency)}
                 </span>
               </span>
               <span className="text-[11px] opacity-80 font-mono">
-                (合約總額 {formatCurrency(Number(totalContractAmount) || 0)} ÷ {Number(estimatedHours)} 小時)
+                (合約總額 {formatCurrency(Number(totalContractAmount) || 0, currency)} ÷ {Number(estimatedHours)} 小時)
               </span>
             </div>
           ) : (

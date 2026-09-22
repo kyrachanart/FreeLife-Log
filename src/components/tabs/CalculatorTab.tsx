@@ -36,7 +36,7 @@ import { ProjectHeader } from '../common/ProjectHeader';
 import { BatchDeleteProjectsModal } from '../modals/BatchDeleteProjectsModal';
 import { ProjectSelectDropdown } from '../common/ProjectSelectDropdown';
 import { getClientColor } from '../../utils/clientColors';
-import { formatCurrency, formatHourlyRate } from '../../utils/currency';
+import { formatCurrency, formatHourlyRate, getCurrencySymbol } from '../../utils/currency';
 
 interface CalculatorTabProps {
   projects: Project[];
@@ -379,6 +379,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
   // Dynamic Effective Hourly Rate
   // Formula: Effective Hourly Rate = Total Revenue / (Total Minutes / 60)
   // Safeguard: 1-Hour Threshold Rule (totalWorkedMinutes < 60)
+  const projCurrency = currentProject?.currency || freelancerProfile?.defaultCurrency || 'HKD';
   const hasEstimatedHoursLimit = typeof currentProject?.estimatedHours === 'number' && currentProject.estimatedHours > 0;
   const targetEstimatedRate = (currentProject && hasEstimatedHoursLimit)
     ? totalRevenue / currentProject.estimatedHours!
@@ -390,8 +391,8 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
     : targetEstimatedRate;
 
   const effectiveHourlyRateText = isUnderOneHour
-    ? (targetEstimatedRate !== null ? `${formatHourlyRate(targetEstimatedRate)} (目標預估)` : 'HK$ -- / h')
-    : (effectiveHourlyRate !== null ? formatHourlyRate(effectiveHourlyRate) : 'HK$ -- / h');
+    ? (targetEstimatedRate !== null ? `${formatHourlyRate(targetEstimatedRate, projCurrency)} (目標預估)` : `${getCurrencySymbol(projCurrency)} -- / h`)
+    : (effectiveHourlyRate !== null ? formatHourlyRate(effectiveHourlyRate, projCurrency) : `${getCurrencySymbol(projCurrency)} -- / h`);
 
   const wH = Math.floor(totalWorkedMinutes / 60);
   const wM = totalWorkedMinutes % 60;
@@ -679,7 +680,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
             </div>
             <div>
               <div className="font-mono text-2xl sm:text-3xl font-black text-blue-600 dark:text-blue-400">
-                HK$ {totalRevenue.toLocaleString()}
+                {formatCurrency(totalRevenue, projCurrency)}
               </div>
               <div className="text-[11px] text-stone-400 mt-1.5">
                 專案合約總額 (固定總收益)
@@ -1314,6 +1315,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
         project={currentProject}
         onUpdateProject={onUpdateProject}
         existingClients={existingClients}
+        defaultCurrency={freelancerProfile.defaultCurrency || 'HKD'}
       />
 
       {/* Confirm Delete Single Session Modal */}

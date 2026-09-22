@@ -13,12 +13,14 @@ import {
   Sparkles,
   AlertTriangle,
   Info,
+  Coins,
 } from 'lucide-react';
 import { FreelancerProfile, Project, TimeSession } from '../../types';
 import { useTheme } from '../../ThemeContext';
 import { exportBackupJSON, validateBackupContent, restoreBackupToStorage, ValidationResult } from '../../utils/backup';
 import { ConfirmRestoreModal } from './ConfirmRestoreModal';
 import { usePWAInstall } from '../../hooks/usePWAInstall';
+import { SUPPORTED_CURRENCIES, DEFAULT_CURRENCY } from '../../utils/currency';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -47,6 +49,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   const [name, setName] = useState(profile.name || '');
   const [title, setTitle] = useState(profile.title || '');
   const [email, setEmail] = useState(profile.email || '');
+  const [defaultCurrency, setDefaultCurrency] = useState(profile.defaultCurrency || DEFAULT_CURRENCY);
 
   // Backup & Restore states
   const [isExporting, setIsExporting] = useState(false);
@@ -65,6 +68,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
       setName(profile.name || '');
       setTitle(profile.title || '');
       setEmail(profile.email || '');
+      setDefaultCurrency(profile.defaultCurrency || DEFAULT_CURRENCY);
       setActiveTab(initialTab);
       setExportFeedback(null);
       setImportError(null);
@@ -80,6 +84,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
       name: name.trim(),
       title: title.trim(),
       email: email.trim(),
+      defaultCurrency,
     });
     onClose();
   };
@@ -263,6 +268,38 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                     }`}
                   />
                 </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-stone-700 dark:text-slate-300 flex items-center gap-1.5">
+                    <Coins size={14} className="text-emerald-600 dark:text-emerald-400" />
+                    <span>【全站預設幣別 / Default Currency】</span>
+                  </label>
+                  <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                    預設：{defaultCurrency}
+                  </span>
+                </div>
+                <div className="relative">
+                  <select
+                    value={defaultCurrency}
+                    onChange={(e) => setDefaultCurrency(e.target.value)}
+                    className={`w-full text-xs sm:text-sm font-bold rounded-xl px-3.5 py-2.5 border outline-none cursor-pointer transition-colors ${
+                      isWarm
+                        ? 'bg-stone-50 border-stone-300 text-stone-900 focus:bg-white focus:ring-2 focus:ring-emerald-500'
+                        : 'bg-slate-950 border-slate-700 text-slate-100 focus:ring-2 focus:ring-emerald-500'
+                    }`}
+                  >
+                    {SUPPORTED_CURRENCIES.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <p className="text-[11px] text-stone-400 dark:text-slate-400 mt-1">
+                  建立新 Project 時將自動以此幣別作為預設值，個別 Project 亦可隨時指定獨立貨幣。
+                </p>
               </div>
 
               <div className="pt-3 flex items-center justify-end gap-2.5">

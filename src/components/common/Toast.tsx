@@ -9,6 +9,7 @@ interface ToastProps {
   message: string;
   variant?: ToastVariant;
   icon?: React.ReactNode;
+  duration?: number;
   onClose?: () => void;
 }
 
@@ -17,6 +18,7 @@ export const Toast: React.FC<ToastProps> = ({
   message,
   variant = 'emerald',
   icon,
+  duration,
   onClose,
 }) => {
   const { theme } = useTheme();
@@ -134,6 +136,18 @@ export const Toast: React.FC<ToastProps> = ({
   };
 
   const isOverflowing = overflowDistance > 0;
+
+  // Dynamic Auto-Dismiss Timer:
+  // If marquee is active (overflowing), dynamically extend auto-dismiss delay to 9.2 seconds so the full 8s animation plays completely.
+  // If short text without marquee, keep standard ~3.2 seconds.
+  useEffect(() => {
+    if (!onClose) return;
+    const timeoutMs = isOverflowing ? 9200 : (duration || 3200);
+    const timer = setTimeout(() => {
+      onClose();
+    }, timeoutMs);
+    return () => clearTimeout(timer);
+  }, [displayMessage, isOverflowing, duration, onClose]);
 
   return (
     <motion.div

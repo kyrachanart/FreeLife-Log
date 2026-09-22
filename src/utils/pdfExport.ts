@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf';
 import { Project, TimeSession, FreelancerProfile } from '../types';
+import { formatCurrency } from './currency';
 
 export interface TimesheetPDFExportOptions {
   project: Project;
@@ -84,8 +85,13 @@ export async function exportTimesheetPDF({
       ctx.fillStyle = '#cbd5e1'; // Slate 300
       ctx.font = `14px ${fontStack}`;
       ctx.fillText(`專案名稱：${project.name}   |   客戶：${project.clientName || '未指定'}`, 70, 150);
+      
+      const projCurrency = project.currency || profile?.defaultCurrency || 'HKD';
+      const contractSuffix = project.totalContractAmount
+        ? `   |   合約金額：${formatCurrency(project.totalContractAmount, projCurrency)}`
+        : '';
       ctx.fillText(
-        `累計總淨工時：${totalWorkedHours.toFixed(1)} 小時 (${totalWorkedMinutes} 分鐘)`,
+        `累計總淨工時：${totalWorkedHours.toFixed(1)} 小時 (${totalWorkedMinutes} 分鐘)${contractSuffix}`,
         70,
         178
       );

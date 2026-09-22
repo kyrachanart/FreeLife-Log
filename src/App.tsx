@@ -782,6 +782,7 @@ function AppContent() {
         onClose={() => setIsNewProjectModalOpen(false)}
         onAddProject={handleCreateProject}
         existingClients={existingClients}
+        defaultCurrency={freelancerProfile.defaultCurrency || 'HKD'}
       />
 
       {/* Global Timer Running Interception Modal */}

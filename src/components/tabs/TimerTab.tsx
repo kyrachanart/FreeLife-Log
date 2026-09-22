@@ -30,7 +30,7 @@ import { TimerRunningInterceptionModal } from '../modals/TimerRunningInterceptio
 import { ProjectSelectDropdown } from '../common/ProjectSelectDropdown';
 import { ProjectHeader } from '../common/ProjectHeader';
 import { getClientColor } from '../../utils/clientColors';
-import { formatCurrency, formatHourlyRate } from '../../utils/currency';
+import { formatCurrency, formatHourlyRate, getCurrencySymbol } from '../../utils/currency';
 import {
   LOCAL_STORAGE_KEYS,
   loadFromLocalStorage,
@@ -581,6 +581,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
     : null;
 
   // Real-time hourly rate calculation safeguard (1-Hour Threshold Rule: < 60 minutes)
+  const projCurrency = currentProject?.currency || 'HKD';
   const isUnderOneHour = totalProjectMinutes < 60;
   const targetEstimatedRate = (currentProject && hasEstimatedHoursLimit)
     ? currentProject.totalContractAmount / currentProject.estimatedHours!
@@ -591,8 +592,8 @@ export const TimerTab: React.FC<TimerTabProps> = ({
     : targetEstimatedRate;
 
   const liveRateText = isUnderOneHour
-    ? (targetEstimatedRate !== null ? `${formatHourlyRate(targetEstimatedRate)} (目標預估)` : 'HK$ -- / h')
-    : (liveRate !== null ? formatHourlyRate(liveRate) : 'HK$ -- / h');
+    ? (targetEstimatedRate !== null ? `${formatHourlyRate(targetEstimatedRate, projCurrency)} (目標預估)` : `${getCurrencySymbol(projCurrency)} -- / h`)
+    : (liveRate !== null ? formatHourlyRate(liveRate, projCurrency) : `${getCurrencySymbol(projCurrency)} -- / h`);
 
   // Continuous Work Calculation for 2-hour water alert
   const continuousSeconds = useMemo(() => {

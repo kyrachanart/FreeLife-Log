@@ -43,6 +43,7 @@ export const DEFAULT_FREELANCER_PROFILE: FreelancerProfile = {
   title: '',
   email: '',
   paymentInfo: '',
+  defaultCurrency: 'HKD',
 };
 
 export const DEFAULT_CLIENT_PROFILE: ClientProfile = {
