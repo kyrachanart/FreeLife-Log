@@ -156,9 +156,11 @@ function AppContent() {
         setActiveProjectId(projects[0].id);
       }
     } else {
-      setActiveProjectId('');
+      if (activeProjectId !== '') {
+        setActiveProjectId('');
+      }
     }
-  }, [projects]);
+  }, [projects, activeProjectId]);
 
   // Extract unique existing clients list
   const existingClients = useMemo(() => {
@@ -325,26 +327,90 @@ function AppContent() {
     showToast(`🚚 已成功將 ${projectIds.length} 個 Project 移動至 Client「${trimmedClient}」！`);
   }, [showToast]);
 
-  // Update a project
-  const handleUpdateProject = useCallback((updatedProject: Project) => {
+  // Batch archive projects with Running Timer Protection
+  const handleArchiveProjects = useCallback((projectIds: string[]) => {
+    if (projectIds.length === 0) return;
+
+    const performArchive = () => {
+      setProjects((prev) =>
+        prev.map((p) => {
+          if (projectIds.includes(p.id)) {
+            return {
+              ...p,
+              isArchived: true,
+            };
+          }
+          return p;
+        })
+      );
+      showToast(projectIds.length === 1 ? '📦 已將專案封存保存！' : `💡 已成功封存 ${projectIds.length} 個專案`);
+    };
+
+    if (timerBridge?.isRunning && projectIds.includes(timerBridge.projectId)) {
+      const runningProj = projects.find((p) => p.id === timerBridge.projectId);
+      const runningName = runningProj?.name || timerBridge.projectName || '當前專案';
+      timerBridge.stopAndSave(() => {
+        performArchive();
+        showToast(`⏱️ 計時器已自動停止並結算儲存「${runningName}」工時！已成功封存。`);
+      });
+    } else {
+      performArchive();
+    }
+  }, [timerBridge, projects, showToast]);
+
+  // Batch unarchive projects
+  const handleUnarchiveProjects = useCallback((projectIds: string[]) => {
+    if (projectIds.length === 0) return;
     setProjects((prev) =>
       prev.map((p) => {
-        if (p.id === updatedProject.id) {
-          return updatedProject;
-        }
-        // If another project belongs to the same client and clientColor was changed, sync clientColor
-        if (p.clientName.trim().toLowerCase() === updatedProject.clientName.trim().toLowerCase()) {
+        if (projectIds.includes(p.id)) {
           return {
             ...p,
-            clientColor: updatedProject.clientColor || updatedProject.color,
-            color: updatedProject.color || updatedProject.clientColor,
+            isArchived: false,
           };
         }
         return p;
       })
     );
-    showToast(`✅ Project「${updatedProject.name}」已更新！`);
+    showToast(projectIds.length === 1 ? '📤 已取消封存專案，已恢復至進行中！' : `📤 已成功取消封存 ${projectIds.length} 個專案`);
   }, [showToast]);
+
+  // Update a project with timer protection
+  const handleUpdateProject = useCallback((updatedProject: Project) => {
+    const prevProject = projects.find((p) => p.id === updatedProject.id);
+    const isBecomingArchived = !prevProject?.isArchived && updatedProject.isArchived;
+
+    const applyUpdate = () => {
+      setProjects((prev) =>
+        prev.map((p) => {
+          if (p.id === updatedProject.id) {
+            return updatedProject;
+          }
+          // If another project belongs to the same client and clientColor was changed, sync clientColor
+          if (p.clientName.trim().toLowerCase() === updatedProject.clientName.trim().toLowerCase()) {
+            return {
+              ...p,
+              clientColor: updatedProject.clientColor || updatedProject.color,
+              color: updatedProject.color || updatedProject.clientColor,
+            };
+          }
+          return p;
+        })
+      );
+      showToast(`✅ Project「${updatedProject.name}」已更新！`);
+    };
+
+    if (isBecomingArchived && timerBridge?.isRunning && timerBridge.projectId === updatedProject.id) {
+      const runningName = updatedProject.name || timerBridge.projectName || '當前專案';
+      timerBridge.stopAndSave(() => {
+        applyUpdate();
+        showToast(`⏱️ 計時器已自動停止並結算儲存「${runningName}」工時！專案已成功封存。`);
+      });
+      return;
+    }
+
+    applyUpdate();
+  }, [projects, timerBridge, showToast]);
 
   // Create a new project & auto-switch to it
   const handleCreateProject = useCallback((newProject: Project) => {
@@ -695,6 +761,8 @@ function AppContent() {
               onDeleteProject={handleDeleteProject}
               onDeleteProjects={handleDeleteProjects}
               onMoveProjects={handleMoveProjects}
+              onArchiveProjects={handleArchiveProjects}
+              onUnarchiveProjects={handleUnarchiveProjects}
               onUpdateProject={handleUpdateProject}
               onNavigateTab={handleNavigateTab}
               onOpenNewProjectModal={handleTriggerNewProject}
@@ -705,6 +773,7 @@ function AppContent() {
               onViewProjectChange={setOverviewProjectId}
               hourlyRateVisibilityMap={hourlyRateVisibilityMap}
               onToggleShowHourlyRate={handleToggleShowHourlyRate}
+              timerBridge={timerBridge}
               timerStatus={
                 timerBridge
                   ? {

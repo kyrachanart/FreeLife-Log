@@ -98,28 +98,32 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
   // --- Profession / Role Recommendation State ---
   const [currentProfession, setCurrentProfession] = useState<string>('');
 
+  const activeProjects = useMemo(() => projects.filter((p) => !p.isArchived), [projects]);
+
   // --- Form States for Manual Entry ---
   const [selectedProjectId, setSelectedProjectId] = useState<string>(() => {
-    if (activeProjectId && projects.some((p) => p.id === activeProjectId)) {
+    if (activeProjectId && activeProjects.some((p) => p.id === activeProjectId)) {
       return activeProjectId;
     }
-    if (viewProjectId && projects.some((p) => p.id === viewProjectId)) {
+    if (viewProjectId && activeProjects.some((p) => p.id === viewProjectId)) {
       return viewProjectId;
     }
-    return projects[0]?.id || '';
+    return activeProjects[0]?.id || '';
   });
 
   useEffect(() => {
-    if (activeProjectId && projects.some((p) => p.id === activeProjectId)) {
-      setSelectedProjectId(activeProjectId);
+    if (activeProjects.length > 0) {
+      if (!selectedProjectId || !activeProjects.some((p) => p.id === selectedProjectId)) {
+        if (activeProjectId && activeProjects.some((p) => p.id === activeProjectId)) {
+          setSelectedProjectId(activeProjectId);
+        } else if (viewProjectId && activeProjects.some((p) => p.id === viewProjectId)) {
+          setSelectedProjectId(viewProjectId);
+        } else {
+          setSelectedProjectId(activeProjects[0].id);
+        }
+      }
     }
-  }, [activeProjectId, projects]);
-
-  useEffect(() => {
-    if (viewProjectId && projects.some((p) => p.id === viewProjectId)) {
-      setSelectedProjectId(viewProjectId);
-    }
-  }, [viewProjectId, projects]);
+  }, [activeProjects, activeProjectId, viewProjectId, selectedProjectId]);
 
   const handleSelectProject = (id: string) => {
     setSelectedProjectId(id);
@@ -807,15 +811,17 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
                         <label className="block text-xs font-bold text-stone-700 dark:text-slate-300 mb-1.5">
                           1. 選擇Project <span className="text-rose-500">*</span>
                         </label>
-                        {projects.length > 0 ? (
+                        {activeProjects.length > 0 ? (
                           <ProjectSelectDropdown
-                            projects={projects}
+                            projects={activeProjects}
                             selectedProjectId={selectedProjectId}
                             onSelectProject={(id) => handleSelectProject(id)}
                             className="w-full"
                           />
                         ) : (
-                          <span className="text-xs text-rose-500 font-bold">尚無 Project</span>
+                          <span className="text-xs text-rose-500 font-bold">
+                            {projects.length > 0 ? '所有 Project 均已封存' : '尚無 Project'}
+                          </span>
                         )}
                       </div>
 
@@ -900,16 +906,18 @@ export const ManualEntryTab: React.FC<ManualEntryTabProps> = ({
                   <label className="block text-xs font-bold text-stone-700 dark:text-slate-300 mb-1.5">
                     1. 選擇Project <span className="text-rose-500">*</span>
                   </label>
-                  {projects.length > 0 ? (
+                  {activeProjects.length > 0 ? (
                     <ProjectSelectDropdown
-                      projects={projects}
+                      projects={activeProjects}
                       selectedProjectId={selectedProjectId}
                       onSelectProject={(id) => handleSelectProject(id)}
                       className="w-full"
                     />
                   ) : (
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-rose-500 font-bold">尚無 Project</span>
+                  <span className="text-xs text-rose-500 font-bold">
+                    {projects.length > 0 ? '所有 Project 均已封存' : '尚無 Project'}
+                  </span>
                   {onOpenNewProjectModal && (
                     <button
                       type="button"

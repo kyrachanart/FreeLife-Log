@@ -38,6 +38,7 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
   const [currency, setCurrency] = useState<string>(defaultCurrency);
   const [totalContractAmount, setTotalContractAmount] = useState<number | string>(25000);
   const [estimatedHours, setEstimatedHours] = useState<number | string>('');
+  const [isArchived, setIsArchived] = useState<boolean>(false);
 
   const currentDisplayClientName =
     selectedClientOption === '__NEW_CLIENT__' ? customClientName.trim() : selectedClientOption.trim();
@@ -83,6 +84,7 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
       setCurrency(project.currency || defaultCurrency || DEFAULT_CURRENCY);
       setRecentCategories(getRecentCategories().slice(0, 5));
       setTotalContractAmount(project.totalContractAmount ?? 0);
+      setIsArchived(project.isArchived || false);
       setEstimatedHours(
         project.estimatedHours !== undefined && project.estimatedHours !== null
           ? project.estimatedHours
@@ -121,6 +123,7 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
       totalContractAmount: parsedContractAmount,
       targetHourlyRate: 0,
       estimatedHours: parsedEstimatedHours,
+      isArchived: isArchived,
     };
 
     onUpdateProject(updated);
@@ -427,7 +430,7 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
             </button>
             <button
               type="submit"
-              className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/30"
+              className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/30 cursor-pointer"
             >
               儲存變更
             </button>

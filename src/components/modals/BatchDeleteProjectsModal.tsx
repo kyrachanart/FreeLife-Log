@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { Trash2, X, CheckSquare, Square, AlertTriangle, Layers, FolderOutput } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Trash2, X, CheckSquare, Square, AlertTriangle, Layers, FolderInput, Archive, ArchiveRestore } from 'lucide-react';
 import { Project } from '../../types';
 import { useTheme } from '../../ThemeContext';
 import { getClientColor } from '../../utils/clientColors';
@@ -10,6 +10,9 @@ interface BatchDeleteProjectsModalProps {
   projects: Project[];
   onConfirmDelete: (projectIds: string[]) => void;
   onMoveProjects?: (projectIds: string[], targetClientName: string) => void;
+  onArchiveProjects?: (projectIds: string[]) => void;
+  onUnarchiveProjects?: (projectIds: string[]) => void;
+  mode?: 'active' | 'archived';
 }
 
 export const BatchDeleteProjectsModal: React.FC<BatchDeleteProjectsModalProps> = ({
@@ -18,6 +21,9 @@ export const BatchDeleteProjectsModal: React.FC<BatchDeleteProjectsModalProps> =
   projects,
   onConfirmDelete,
   onMoveProjects,
+  onArchiveProjects,
+  onUnarchiveProjects,
+  mode = 'active',
 }) => {
   const { theme } = useTheme();
   const isWarm = theme === 'warm';
@@ -26,6 +32,14 @@ export const BatchDeleteProjectsModal: React.FC<BatchDeleteProjectsModalProps> =
   const [showConfirmStep, setShowConfirmStep] = useState(false);
   const [targetClientName, setTargetClientName] = useState('');
   const [showMoveSection, setShowMoveSection] = useState(false);
+
+  // Force reset selections and sub-steps whenever modal opens, closes, or mode changes
+  useEffect(() => {
+    setSelectedIds(new Set());
+    setShowConfirmStep(false);
+    setShowMoveSection(false);
+    setTargetClientName('');
+  }, [isOpen, mode]);
 
   // Group projects by clientName
   const groupedProjects = useMemo(() => {
@@ -85,6 +99,20 @@ export const BatchDeleteProjectsModal: React.FC<BatchDeleteProjectsModalProps> =
     onClose();
   };
 
+  const handleConfirmArchiveAction = () => {
+    if (selectedIds.size === 0 || !onArchiveProjects) return;
+    onArchiveProjects(Array.from(selectedIds));
+    setSelectedIds(new Set());
+    onClose();
+  };
+
+  const handleConfirmUnarchiveAction = () => {
+    if (selectedIds.size === 0 || !onUnarchiveProjects) return;
+    onUnarchiveProjects(Array.from(selectedIds));
+    setSelectedIds(new Set());
+    onClose();
+  };
+
   return (
     <div className="fixed inset-0 z-[1000] flex items-center justify-center p-3 sm:p-4 bg-black/65 backdrop-blur-xs animate-fadeIn">
       <div
@@ -100,10 +128,12 @@ export const BatchDeleteProjectsModal: React.FC<BatchDeleteProjectsModalProps> =
             </div>
             <div>
               <h3 className="text-lg font-black text-stone-900 dark:text-slate-100">
-                管理 Project
+                {mode === 'archived' ? '管理已封存 Project' : '管理 Project'}
               </h3>
               <p className="text-xs text-stone-500 dark:text-slate-400 mt-0.5">
-                勾選專案即可批次移動至其他 Client 資料夾，或進行批量刪除
+                {mode === 'archived'
+                  ? '勾選專案即可進行批次移動、批量取消封存或刪除'
+                  : '勾選專案即可進行批次移動、批量封存或刪除'}
               </p>
             </div>
           </div>
@@ -222,7 +252,7 @@ export const BatchDeleteProjectsModal: React.FC<BatchDeleteProjectsModalProps> =
         {showMoveSection && (
           <div className="p-3.5 rounded-2xl bg-emerald-50/90 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 text-xs my-2 animate-in fade-in duration-150 space-y-2.5">
             <div className="flex items-center gap-1.5 font-extrabold text-emerald-800 dark:text-emerald-200">
-              <FolderOutput size={16} />
+              <FolderInput size={16} />
               <span>將已選 {selectedIds.size} 個專案移動至指定 Client 資料夾：</span>
             </div>
 
@@ -326,9 +356,46 @@ export const BatchDeleteProjectsModal: React.FC<BatchDeleteProjectsModalProps> =
                     : 'bg-stone-200 dark:bg-slate-800 text-stone-400 dark:text-slate-500 cursor-not-allowed'
                 }`}
               >
-                <FolderOutput size={14} />
+                <FolderInput size={14} />
                 <span>移動至其他 Client ({selectedIds.size})</span>
               </button>
+            )}
+
+            {/* Batch Archive / Unarchive Button based on mode */}
+            {!showConfirmStep && !showMoveSection && (
+              mode === 'archived' ? (
+                onUnarchiveProjects && (
+                  <button
+                    type="button"
+                    disabled={selectedIds.size === 0}
+                    onClick={handleConfirmUnarchiveAction}
+                    className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all border ${
+                      selectedIds.size > 0
+                        ? 'bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:hover:bg-blue-900/60 dark:text-blue-300 border-blue-300 dark:border-blue-800 cursor-pointer shadow-xs active:scale-95'
+                        : 'bg-slate-100/60 dark:bg-slate-800/40 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-800 cursor-not-allowed opacity-60'
+                    }`}
+                  >
+                    <ArchiveRestore size={14} />
+                    <span>取消封存 ({selectedIds.size})</span>
+                  </button>
+                )
+              ) : (
+                onArchiveProjects && (
+                  <button
+                    type="button"
+                    disabled={selectedIds.size === 0}
+                    onClick={handleConfirmArchiveAction}
+                    className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all border ${
+                      selectedIds.size > 0
+                        ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-700 cursor-pointer shadow-xs active:scale-95'
+                        : 'bg-slate-100/60 dark:bg-slate-800/40 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-800 cursor-not-allowed opacity-60'
+                    }`}
+                  >
+                    <Archive size={14} />
+                    <span>封存專案 ({selectedIds.size})</span>
+                  </button>
+                )
+              )
             )}
 
             {/* Delete Button */}
@@ -344,7 +411,7 @@ export const BatchDeleteProjectsModal: React.FC<BatchDeleteProjectsModalProps> =
                 }`}
               >
                 <Trash2 size={14} />
-                <span>刪除已選專案 ({selectedIds.size})</span>
+                <span>刪除專案 ({selectedIds.size})</span>
               </button>
             ) : (
               <button

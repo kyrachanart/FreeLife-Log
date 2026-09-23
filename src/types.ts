@@ -25,6 +25,7 @@ export interface Project {
   memo?: string; // 專案專屬持久備忘筆記
   memos?: ProjectMemoItem[]; // 專案專屬備忘筆記歷史列表
   milestones?: { title: string; amount: number; completed: boolean }[];
+  isArchived?: boolean; // 專案封存標記 (預設 false)
 }
 
 export interface BreakRecord {

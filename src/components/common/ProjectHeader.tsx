@@ -1,4 +1,5 @@
 import React from 'react';
+import { Archive } from 'lucide-react';
 import { Project } from '../../types';
 import { getClientColor } from '../../utils/clientColors';
 
@@ -7,6 +8,7 @@ interface ProjectHeaderProps {
   showTitle?: boolean;
   className?: string;
   rightActions?: React.ReactNode;
+  showArchivedBadge?: boolean;
 }
 
 export const ProjectHeader: React.FC<ProjectHeaderProps> = ({
@@ -14,6 +16,7 @@ export const ProjectHeader: React.FC<ProjectHeaderProps> = ({
   showTitle = true,
   className = '',
   rightActions,
+  showArchivedBadge = false,
 }) => {
   const clientColor = project.clientColor || project.color || getClientColor(project.clientName);
   const formattedDate = project.createdAt
@@ -39,6 +42,12 @@ export const ProjectHeader: React.FC<ProjectHeaderProps> = ({
           {project.category && (
             <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-stone-100 dark:bg-slate-800 text-stone-600 dark:text-slate-300 border border-stone-200 dark:border-slate-700 shrink-0 whitespace-nowrap">
               {project.category}
+            </span>
+          )}
+          {showArchivedBadge && project.isArchived && (
+            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shrink-0 whitespace-nowrap flex items-center gap-1">
+              <Archive size={12} />
+              <span>已封存</span>
             </span>
           )}
         </div>

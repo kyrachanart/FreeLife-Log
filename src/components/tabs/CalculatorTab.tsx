@@ -24,8 +24,10 @@ import {
   ChevronDown,
   ChevronUp,
   X,
+  Archive,
+  ArchiveRestore,
 } from 'lucide-react';
-import { Project, TimeSession, ProjectMemoItem, FreelancerProfile } from '../../types';
+import { Project, TimeSession, ProjectMemoItem, FreelancerProfile, TimerBridge } from '../../types';
 import { useTheme } from '../../ThemeContext';
 import { Toast } from '../common/Toast';
 import { exportTimesheetPDF } from '../../utils/pdfExport';
@@ -46,6 +48,8 @@ interface CalculatorTabProps {
   onDeleteProject?: (projectId: string) => void;
   onDeleteProjects?: (projectIds: string[]) => void;
   onMoveProjects?: (projectIds: string[], targetClientName: string) => void;
+  onArchiveProjects?: (projectIds: string[]) => void;
+  onUnarchiveProjects?: (projectIds: string[]) => void;
   onUpdateProject: (updatedProject: Project) => void;
   onNavigateTab?: (tabId: string) => void;
   onOpenNewProjectModal?: () => void;
@@ -55,6 +59,7 @@ interface CalculatorTabProps {
   showHourlyRate?: boolean;
   hourlyRateVisibilityMap?: Record<string, boolean>;
   onToggleShowHourlyRate?: (projectId?: string) => void;
+  timerBridge?: TimerBridge | null;
   timerStatus?: {
     isRunning: boolean;
     projectId: string;
@@ -74,6 +79,8 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
   onDeleteProject,
   onDeleteProjects,
   onMoveProjects,
+  onArchiveProjects,
+  onUnarchiveProjects,
   onUpdateProject,
   onNavigateTab,
   onOpenNewProjectModal,
@@ -83,6 +90,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
   showHourlyRate = true,
   hourlyRateVisibilityMap,
   onToggleShowHourlyRate,
+  timerBridge,
   timerStatus,
   onRequestSwitchProject,
   viewProjectId: externalViewProjectId,
@@ -125,6 +133,13 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
     return list;
   }, [projects]);
 
+  // Top Filter Tab: 'active' (進行中) vs 'archived' (已封存)
+  const [projectFilterTab, setProjectFilterTab] = useState<'active' | 'archived'>('active');
+
+  const activeProjects = useMemo(() => projects.filter((p) => !p.isArchived), [projects]);
+  const archivedProjects = useMemo(() => projects.filter((p) => !!p.isArchived), [projects]);
+  const currentTabProjects = projectFilterTab === 'active' ? activeProjects : archivedProjects;
+
   // Local independent viewing state
   const [viewProjectId, setViewProjectId] = useState<string>(() => {
     if (externalViewProjectId && projects.some((p) => p.id === externalViewProjectId)) {
@@ -133,26 +148,36 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
     if (activeProjectId && projects.some((p) => p.id === activeProjectId)) {
       return activeProjectId;
     }
-    return projects[0]?.id || '';
+    return activeProjects[0]?.id || projects[0]?.id || '';
   });
 
-  // Keep viewProjectId valid when projects change
+  // Keep viewProjectId synchronized with current filter tab & externalViewProjectId
   useEffect(() => {
-    if (projects.length > 0) {
+    if (externalViewProjectId && projects.some((p) => p.id === externalViewProjectId)) {
+      if (viewProjectId !== externalViewProjectId) {
+        setViewProjectId(externalViewProjectId);
+      }
+      const targetProj = projects.find((p) => p.id === externalViewProjectId);
+      if (targetProj) {
+        const expectedTab = targetProj.isArchived ? 'archived' : 'active';
+        if (projectFilterTab !== expectedTab) {
+          setProjectFilterTab(expectedTab);
+        }
+      }
+    } else if (currentTabProjects.length > 0) {
+      if (!viewProjectId || !currentTabProjects.some((p) => p.id === viewProjectId)) {
+        setViewProjectId(currentTabProjects[0].id);
+      }
+    } else if (projects.length > 0) {
       if (!viewProjectId || !projects.some((p) => p.id === viewProjectId)) {
         setViewProjectId(projects[0].id);
       }
     } else {
-      setViewProjectId('');
+      if (viewProjectId !== '') {
+        setViewProjectId('');
+      }
     }
-  }, [projects, viewProjectId]);
-
-  // Synchronize when externalViewProjectId changes
-  useEffect(() => {
-    if (externalViewProjectId && projects.some((p) => p.id === externalViewProjectId)) {
-      setViewProjectId(externalViewProjectId);
-    }
-  }, [externalViewProjectId, projects]);
+  }, [externalViewProjectId, projects, currentTabProjects, projectFilterTab, viewProjectId]);
 
   const handleViewProjectChange = (targetId: string) => {
     setViewProjectId(targetId);
@@ -161,6 +186,130 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
     }
     if (setActiveProjectId) {
       setActiveProjectId(targetId);
+    }
+  };
+
+  const handleFilterTabChange = (tab: 'active' | 'archived') => {
+    setProjectFilterTab(tab);
+    const targetList = tab === 'active' ? activeProjects : archivedProjects;
+    if (targetList.length > 0) {
+      if (!targetList.some((p) => p.id === viewProjectId)) {
+        handleViewProjectChange(targetList[0].id);
+      }
+    }
+  };
+
+  const handleToggleArchive = (project: Project) => {
+    const willBeArchived = !project.isArchived;
+
+    if (willBeArchived) {
+      const executeArchive = () => {
+        const updated: Project = {
+          ...project,
+          isArchived: true,
+        };
+        onUpdateProject(updated);
+        showToast(`📦 已將「${project.name}」封存保存！`);
+        const remainingActive = activeProjects.filter((p) => p.id !== project.id);
+        if (remainingActive.length > 0) {
+          handleViewProjectChange(remainingActive[0].id);
+          if (setActiveProjectId) setActiveProjectId(remainingActive[0].id);
+        }
+      };
+
+      // Running Timer Protection
+      if (timerBridge?.isRunning && timerBridge.projectId === project.id) {
+        const runningName = project.name || timerBridge.projectName || '當前專案';
+        timerBridge.stopAndSave(() => {
+          executeArchive();
+          showToast(`⏱️ 計時器已自動停止並結算儲存「${runningName}」工時！📦 已成功封存。`);
+        });
+        return;
+      }
+
+      executeArchive();
+    } else {
+      // Unarchive (取消封存)
+      const updated: Project = {
+        ...project,
+        isArchived: false,
+      };
+      onUpdateProject(updated);
+      showToast(`📤 已取消封存「${project.name}」，已恢復至進行中！`);
+
+      const remainingArchived = archivedProjects.filter((p) => p.id !== project.id);
+      // Empty state handling: If the last archived project is unarchived, automatically switch to 'active' tab and view this project!
+      if (remainingArchived.length === 0) {
+        setProjectFilterTab('active');
+        handleViewProjectChange(project.id);
+        if (setActiveProjectId) {
+          setActiveProjectId(project.id);
+        }
+      } else {
+        handleViewProjectChange(remainingArchived[0].id);
+      }
+    }
+  };
+
+  const handleBatchArchiveProjects = (projectIds: string[]) => {
+    if (projectIds.length === 0) return;
+
+    const performBatchArchive = () => {
+      if (onArchiveProjects) {
+        onArchiveProjects(projectIds);
+      } else {
+        projectIds.forEach((id) => {
+          const p = projects.find((proj) => proj.id === id);
+          if (p) onUpdateProject({ ...p, isArchived: true });
+        });
+        showToast(`💡 已成功封存 ${projectIds.length} 個專案`);
+      }
+
+      if (projectFilterTab === 'active' && projectIds.includes(viewProjectId)) {
+        const remaining = activeProjects.filter((p) => !projectIds.includes(p.id));
+        if (remaining.length > 0) {
+          handleViewProjectChange(remaining[0].id);
+          if (setActiveProjectId) setActiveProjectId(remaining[0].id);
+        }
+      }
+    };
+
+    // Running Timer Protection for Batch Archive:
+    if (timerBridge?.isRunning && projectIds.includes(timerBridge.projectId)) {
+      const runningProj = projects.find((p) => p.id === timerBridge.projectId);
+      const runningName = runningProj?.name || timerBridge.projectName || '當前專案';
+      timerBridge.stopAndSave(() => {
+        performBatchArchive();
+        showToast(`⏱️ 計時器已自動停止並結算儲存「${runningName}」工時！`);
+      });
+    } else {
+      performBatchArchive();
+    }
+  };
+
+  const handleBatchUnarchiveProjects = (projectIds: string[]) => {
+    if (projectIds.length === 0) return;
+
+    if (onUnarchiveProjects) {
+      onUnarchiveProjects(projectIds);
+    } else {
+      projectIds.forEach((id) => {
+        const p = projects.find((proj) => proj.id === id);
+        if (p) onUpdateProject({ ...p, isArchived: false });
+      });
+      showToast(`📤 已成功取消封存 ${projectIds.length} 個專案`);
+    }
+
+    const remainingArchived = archivedProjects.filter((p) => !projectIds.includes(p.id));
+    // Empty state handling: If all archived projects were unarchived, automatically switch to 'active' tab and view the first restored project!
+    if (remainingArchived.length === 0) {
+      setProjectFilterTab('active');
+      handleViewProjectChange(projectIds[0]);
+      if (setActiveProjectId) {
+        setActiveProjectId(projectIds[0]);
+      }
+    } else if (projectIds.includes(viewProjectId)) {
+      handleViewProjectChange(remainingArchived[0].id);
     }
   };
 
@@ -197,9 +346,11 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
   // Current viewed project
   const currentProject = useMemo(() => {
     if (projects.length === 0) return null;
-    const found = projects.find((p) => p.id === viewProjectId);
-    return found || projects[0];
-  }, [projects, viewProjectId]);
+    const foundInTab = currentTabProjects.find((p) => p.id === viewProjectId);
+    if (foundInTab) return foundInTab;
+    if (currentTabProjects.length > 0) return currentTabProjects[0];
+    return projects.find((p) => p.id === viewProjectId) || null;
+  }, [projects, currentTabProjects, viewProjectId]);
 
   // Project Memo state for current project
   const [projectMemoInput, setProjectMemoInput] = useState<string>('');
@@ -483,7 +634,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
     setIsDeleteProjectModalOpen(false);
   };
 
-  if (!currentProject) {
+  if (projects.length === 0) {
     return (
       <div
         className={`rounded-3xl p-10 sm:p-16 border text-center max-w-4xl mx-auto space-y-4 ${
@@ -534,56 +685,204 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
       )}
 
       {/* ============================================================ */}
-      {/* TOP CONTROLS & PROJECT SELECTOR */}
+      {/* 1. TOP TAB SWITCHER: 進行中 (Active) / 已封存 (Archived) */}
       {/* ============================================================ */}
-      <div
-        className={`rounded-3xl p-6 sm:p-7 border transition-all ${
-          isWarm ? 'bg-white border-stone-200 shadow-sm' : 'bg-slate-900 border-slate-800'
-        }`}
-        style={{
-          borderLeftWidth: '4px',
-          borderLeftColor: clientColor,
-        }}
-      >
-            {/* TOP ACTION & SELECTOR ROWS */}
-            <div className="flex items-center justify-between gap-2 sm:gap-3 pb-4 border-b border-stone-100 dark:border-slate-800">
-              {/* Left: Label (hidden on mobile) + Dropdown (occupies main width) */}
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                <span className="hidden sm:inline-block text-xs font-bold text-stone-500 dark:text-slate-400 whitespace-nowrap shrink-0">
-                  選擇 PROJECT:
-                </span>
-                <div className="w-full min-w-0 flex-1">
-                  <ProjectSelectDropdown
-                    projects={projects}
-                    selectedProjectId={viewProjectId}
-                    onSelectProject={(id) => handleViewProjectChange(id)}
-                    className="w-full"
-                  />
-                </div>
-              </div>
+      <div className="flex items-center justify-between gap-3 mb-4">
+        {/* Pill style Tab Switcher */}
+        <div
+          className={`inline-flex items-center p-1 rounded-2xl border transition-all ${
+            isWarm
+              ? 'bg-stone-100/90 border-stone-200/90 shadow-2xs'
+              : 'bg-slate-900/90 border-slate-800 shadow-2xs'
+          }`}
+        >
+          <button
+            type="button"
+            onClick={() => handleFilterTabChange('active')}
+            className={`flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+              projectFilterTab === 'active'
+                ? isWarm
+                  ? 'bg-white text-stone-900 shadow-xs'
+                  : 'bg-slate-800 text-slate-100 shadow-xs'
+                : 'text-stone-500 hover:text-stone-800 dark:text-slate-400 dark:hover:text-slate-200'
+            }`}
+          >
+            <Clock size={15} className={projectFilterTab === 'active' ? 'text-emerald-600 dark:text-emerald-400' : ''} />
+            <span>進行中</span>
+            <span
+              className={`px-1.5 py-0.5 rounded-full text-[10px] font-extrabold ${
+                projectFilterTab === 'active'
+                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+                  : 'bg-stone-200 text-stone-600 dark:bg-slate-800 dark:text-slate-400'
+              }`}
+            >
+              {activeProjects.length}
+            </span>
+          </button>
 
-              {/* Right: Settings Gear Dropdown */}
-              <div className="relative shrink-0">
+          <button
+            type="button"
+            onClick={() => handleFilterTabChange('archived')}
+            className={`flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+              projectFilterTab === 'archived'
+                ? isWarm
+                  ? 'bg-white text-stone-900 shadow-xs'
+                  : 'bg-slate-800 text-slate-100 shadow-xs'
+                : 'text-stone-500 hover:text-stone-800 dark:text-slate-400 dark:hover:text-slate-200'
+            }`}
+          >
+            <Archive size={15} className={projectFilterTab === 'archived' ? 'text-blue-600 dark:text-blue-400' : ''} />
+            <span>已封存</span>
+            <span
+              className={`px-1.5 py-0.5 rounded-full text-[10px] font-extrabold ${
+                projectFilterTab === 'archived'
+                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
+                  : 'bg-stone-200 text-stone-600 dark:bg-slate-800 dark:text-slate-400'
+              }`}
+            >
+              {archivedProjects.length}
+            </span>
+          </button>
+        </div>
+
+        {/* Right Main Button: only show on active tab */}
+        {projectFilterTab === 'active' && onOpenNewProjectModal && (
+          <button
+            type="button"
+            onClick={onOpenNewProjectModal}
+            className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95 shrink-0"
+          >
+            <Plus size={15} />
+            <span>新增 Project</span>
+          </button>
+        )}
+      </div>
+
+      {/* Tab Empty State */}
+      {currentTabProjects.length === 0 ? (
+        <div
+          className={`rounded-3xl p-10 sm:p-14 border text-center space-y-4 ${
+            isWarm ? 'bg-white border-stone-200 shadow-sm' : 'bg-slate-900 border-slate-800'
+          }`}
+        >
+          {projectFilterTab === 'archived' ? (
+            <>
+              <div className="w-14 h-14 rounded-2xl bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center mx-auto border border-blue-200 dark:border-blue-800">
+                <Archive size={28} />
+              </div>
+              <h3 className="text-lg sm:text-xl font-extrabold text-stone-900 dark:text-slate-100">
+                目前尚無已封存的 Project
+              </h3>
+              <p className="text-xs sm:text-sm text-stone-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
+                當專案完成驗收或階段性結案時，可在專案總覽點擊「封存」按鈕，將專案封存移至此處。所有歷史 Timesheet 紀錄與報表數據將完整妥善保留。
+              </p>
+              <div className="pt-2">
                 <button
                   type="button"
-                  onClick={() => setIsSettingsMenuOpen((prev) => !prev)}
-                  className={`p-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                    isWarm
-                      ? 'border-stone-300 hover:bg-stone-100 text-stone-700 bg-stone-50/50'
-                      : 'border-slate-700 hover:bg-slate-800 text-slate-300 bg-slate-900/50'
-                  }`}
-                  title="Project 管理與設定"
+                  onClick={() => handleFilterTabChange('active')}
+                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 mx-auto cursor-pointer shadow-sm transition-all"
                 >
-                  <Settings size={18} />
-                  <span className="hidden sm:inline">設定</span>
-                  <ChevronDown size={14} />
+                  <Clock size={14} />
+                  <span>查看進行中 Project ({activeProjects.length})</span>
                 </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="w-14 h-14 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto border border-emerald-200 dark:border-emerald-800">
+                <Clock size={28} />
+              </div>
+              <h3 className="text-lg sm:text-xl font-extrabold text-stone-900 dark:text-slate-100">
+                目前沒有進行中的 Project
+              </h3>
+              <p className="text-xs sm:text-sm text-stone-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
+                所有 Project 目前均已封存，或者尚未建立進行中專案。你可以立即建立新 Project，或從已封存專案中「取消封存」。
+              </p>
+              <div className="pt-2 flex flex-wrap items-center justify-center gap-2">
+                {archivedProjects.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => handleFilterTabChange('archived')}
+                    className={`px-4 py-2.5 rounded-xl border font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-all ${
+                      isWarm ? 'border-stone-300 text-stone-700 hover:bg-stone-100' : 'border-slate-700 text-slate-300 hover:bg-slate-800'
+                    }`}
+                  >
+                    <Archive size={14} />
+                    <span>查看已封存專案 ({archivedProjects.length})</span>
+                  </button>
+                )}
+                {onOpenNewProjectModal && (
+                  <button
+                    type="button"
+                    onClick={onOpenNewProjectModal}
+                    className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-sm transition-all"
+                  >
+                    <Plus size={14} />
+                    <span>立即新增 Project</span>
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      ) : currentProject ? (
+        <>
+          {/* ============================================================ */}
+          {/* 2. TOP CONTROLS & PROJECT SELECTOR */}
+          {/* ============================================================ */}
+        <div
+          className={`rounded-3xl p-6 sm:p-7 border transition-all ${
+            isWarm ? 'bg-white border-stone-200 shadow-sm' : 'bg-slate-900 border-slate-800'
+          }`}
+          style={{
+            borderLeftWidth: '4px',
+            borderLeftColor: clientColor,
+          }}
+        >
+          {/* TOP ACTION & SELECTOR ROWS */}
+          <div className="flex items-center justify-between gap-2 sm:gap-3 pb-4 border-b border-stone-100 dark:border-slate-800">
+            {/* Left: Label (hidden on mobile) + Dropdown (occupies main width) */}
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <span className="hidden sm:inline-block text-xs font-bold text-stone-500 dark:text-slate-400 whitespace-nowrap shrink-0">
+                選擇 PROJECT:
+              </span>
+              <div className="w-full min-w-0 flex-1">
+                <ProjectSelectDropdown
+                  projects={currentTabProjects}
+                  selectedProjectId={viewProjectId}
+                  onSelectProject={(id) => handleViewProjectChange(id)}
+                  className="w-full"
+                />
+              </div>
+            </div>
 
-                {isSettingsMenuOpen && (
+            {/* Right: Unified Settings Menu (⚙️) */}
+            <div className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsSettingsMenuOpen((prev) => !prev)}
+                className={`p-2 sm:px-2.5 sm:py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                  isWarm
+                    ? 'border-stone-300 hover:bg-stone-100 text-stone-700 bg-stone-50/50'
+                    : 'border-slate-700 hover:bg-slate-800 text-slate-300 bg-slate-900/50'
+                }`}
+                title="Project 操作與設定"
+              >
+                <Settings size={15} />
+                <ChevronDown size={12} className={`transition-transform duration-200 ${isSettingsMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {isSettingsMenuOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setIsSettingsMenuOpen(false)}
+                  />
                   <div
                     className="absolute right-0 top-full mt-2 w-52 rounded-2xl bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 shadow-xl z-50 p-1.5 space-y-1 animate-in fade-in-50 zoom-in-95"
                     onClick={() => setIsSettingsMenuOpen(false)}
                   >
+                    {/* Item 1: 編輯 Project */}
                     <button
                       type="button"
                       onClick={() => setIsEditModalOpen(true)}
@@ -593,15 +892,38 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                       <span>編輯 Project</span>
                     </button>
 
+                    {/* Item 2: 封存 / 取消封存 Project */}
+                    {projectFilterTab === 'active' ? (
+                      <button
+                        type="button"
+                        onClick={() => handleToggleArchive(currentProject)}
+                        className="w-full text-left px-3 py-2 rounded-xl text-xs font-bold hover:bg-stone-100 dark:hover:bg-slate-800 text-stone-700 dark:text-slate-200 flex items-center gap-2 transition-colors cursor-pointer"
+                      >
+                        <Archive size={14} className="text-stone-500 dark:text-slate-400" />
+                        <span>封存 Project</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleToggleArchive(currentProject)}
+                        className="w-full text-left px-3 py-2 rounded-xl text-xs font-bold hover:bg-stone-100 dark:hover:bg-slate-800 text-stone-700 dark:text-slate-200 flex items-center gap-2 transition-colors cursor-pointer"
+                      >
+                        <ArchiveRestore size={14} className="text-stone-500 dark:text-slate-400" />
+                        <span>取消封存 Project</span>
+                      </button>
+                    )}
+
+                    {/* Item 3: 批次管理 Project */}
                     <button
                       type="button"
                       onClick={() => setIsBatchDeleteModalOpen(true)}
                       className="w-full text-left px-3 py-2 rounded-xl text-xs font-bold hover:bg-stone-100 dark:hover:bg-slate-800 text-stone-700 dark:text-slate-200 flex items-center gap-2 transition-colors cursor-pointer"
                     >
                       <Layers size={14} className="text-stone-500 dark:text-slate-400" />
-                      <span>管理 Project</span>
+                      <span>批次管理 Project</span>
                     </button>
 
+                    {/* Item 4: 刪除此 Project */}
                     {onDeleteProject && (
                       <button
                         type="button"
@@ -613,9 +935,10 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                       </button>
                     )}
                   </div>
-                )}
-              </div>
+                </>
+              )}
             </div>
+          </div>
 
             {/* Project Title Header via unified ProjectHeader component */}
             <ProjectHeader project={currentProject} showTitle={true} className="pt-4" />
@@ -1069,9 +1392,8 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
       {/* ============================================================ */}
       {/* 5. INDEPENDENT PROJECT MEMO / WORK NOTE SECTION */}
       {/* ============================================================ */}
-      {currentProject && (
-        <div
-          className={`rounded-3xl p-6 sm:p-7 border transition-all space-y-6 ${
+      <div
+        className={`rounded-3xl p-6 sm:p-7 border transition-all space-y-6 ${
             isWarm ? 'bg-white border-stone-200 shadow-sm' : 'bg-slate-900 border-slate-800'
           }`}
           style={{
@@ -1306,14 +1628,27 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
             )}
           </div>
         </div>
-      )}
+      </>
+    ) : null}
 
       {/* Edit Project Modal */}
       <EditProjectModal
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         project={currentProject}
-        onUpdateProject={onUpdateProject}
+        onUpdateProject={(updatedProject) => {
+          if (projectFilterTab === 'archived' && currentProject?.isArchived && !updatedProject.isArchived) {
+            const remainingArchived = archivedProjects.filter((p) => p.id !== updatedProject.id);
+            if (remainingArchived.length === 0) {
+              setProjectFilterTab('active');
+              handleViewProjectChange(updatedProject.id);
+              if (setActiveProjectId) {
+                setActiveProjectId(updatedProject.id);
+              }
+            }
+          }
+          onUpdateProject(updatedProject);
+        }}
         existingClients={existingClients}
         defaultCurrency={freelancerProfile.defaultCurrency || 'HKD'}
       />
@@ -1348,9 +1683,12 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
       <BatchDeleteProjectsModal
         isOpen={isBatchDeleteModalOpen}
         onClose={() => setIsBatchDeleteModalOpen(false)}
-        projects={projects}
+        projects={projectFilterTab === 'active' ? activeProjects : archivedProjects}
+        mode={projectFilterTab}
         onConfirmDelete={handleBatchDeleteProjects}
         onMoveProjects={onMoveProjects}
+        onArchiveProjects={handleBatchArchiveProjects}
+        onUnarchiveProjects={handleBatchUnarchiveProjects}
       />
     </div>
   );

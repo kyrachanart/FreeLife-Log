@@ -98,15 +98,17 @@ export const TimerTab: React.FC<TimerTabProps> = ({
     null
   );
 
+  const activeProjects = useMemo(() => projects.filter((p) => !p.isArchived), [projects]);
+
   // Selected project for timer (always preserved!)
   const [selectedProjectId, setSelectedProjectId] = useState<string>(() => {
-    if (activeProjectId && projects.some((p) => p.id === activeProjectId)) {
+    if (activeProjectId && activeProjects.some((p) => p.id === activeProjectId)) {
       return activeProjectId;
     }
-    if (savedTimer?.selectedProjectId && projects.some((p) => p.id === savedTimer.selectedProjectId)) {
+    if (savedTimer?.selectedProjectId && activeProjects.some((p) => p.id === savedTimer.selectedProjectId)) {
       return savedTimer.selectedProjectId;
     }
-    return projects[0]?.id || '';
+    return activeProjects[0]?.id || projects[0]?.id || '';
   });
 
   // Project Memo / Task Note state
@@ -164,19 +166,26 @@ export const TimerTab: React.FC<TimerTabProps> = ({
     | null
   >(null);
 
-  // Synchronize when global activeProjectId changes externally (only when idle)
+  // Keep selectedProjectId synchronized with active projects & external activeProjectId
   useEffect(() => {
-    if (
-      activeProjectId &&
-      activeProjectId !== selectedProjectId &&
-      projects.some((p) => p.id === activeProjectId)
-    ) {
+    if (activeProjects.length > 0) {
       if (!isTimerRunning) {
-        setSelectedProjectId(activeProjectId);
-        setTimerProjectId(activeProjectId);
+        if (activeProjectId && activeProjects.some((p) => p.id === activeProjectId)) {
+          if (selectedProjectId !== activeProjectId) {
+            setSelectedProjectId(activeProjectId);
+            setTimerProjectId(activeProjectId);
+          }
+        } else if (!selectedProjectId || !activeProjects.some((p) => p.id === selectedProjectId)) {
+          setSelectedProjectId(activeProjects[0].id);
+          setTimerProjectId(activeProjects[0].id);
+        }
+      }
+    } else {
+      if (selectedProjectId !== '') {
+        setSelectedProjectId('');
       }
     }
-  }, [activeProjectId, projects, selectedProjectId, isTimerRunning]);
+  }, [activeProjects, activeProjectId, isTimerRunning, selectedProjectId]);
 
   // Interval Ref to ensure complete cleanup on reset or unmount
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -219,17 +228,6 @@ export const TimerTab: React.FC<TimerTabProps> = ({
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
   }, [timerState]);
-
-  // Keep selectedProjectId synchronized if project list changes
-  useEffect(() => {
-    if (projects.length > 0) {
-      if (!selectedProjectId || !projects.some((p) => p.id === selectedProjectId)) {
-        setSelectedProjectId(projects[0].id);
-      }
-    } else {
-      setSelectedProjectId('');
-    }
-  }, [projects, selectedProjectId]);
 
   // Current selected project for viewing in top selector
   const currentProject = useMemo(() => {
@@ -550,7 +548,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
   // Group projects by clientName for organized select dropdown
   const groupedProjects = useMemo(() => {
     const map = new Map<string, Project[]>();
-    projects.forEach((p) => {
+    activeProjects.forEach((p) => {
       const client = (p.clientName || '未指定 Client').trim();
       if (!map.has(client)) {
         map.set(client, []);
@@ -558,7 +556,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
       map.get(client)!.push(p);
     });
     return map;
-  }, [projects]);
+  }, [activeProjects]);
 
   const projectSessionMinutes = projectSessions.reduce((sum, s) => sum + s.workDurationMinutes, 0);
   const accurateCumulativeMinutes = Math.max(
@@ -1045,7 +1043,7 @@ export const TimerTab: React.FC<TimerTabProps> = ({
                   <div className="flex items-center gap-2 sm:gap-3 w-full">
                     <div className="flex-1 min-w-0">
                       <ProjectSelectDropdown
-                        projects={projects}
+                        projects={activeProjects}
                         selectedProjectId={selectedProjectId}
                         onSelectProject={(id) => handleProjectChangeAttempt(id)}
                         disabled={isTimerRunning}

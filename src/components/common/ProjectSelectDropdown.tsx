@@ -3,6 +3,7 @@ import { ChevronDown, ChevronUp, Check, Lock } from 'lucide-react';
 import { Project } from '../../types';
 import { useTheme } from '../../ThemeContext';
 import { getClientColor } from '../../utils/clientColors';
+import { formatCurrency } from '../../utils/currency';
 
 interface ProjectSelectDropdownProps {
   projects: Project[];
@@ -183,7 +184,7 @@ export const ProjectSelectDropdown: React.FC<ProjectSelectDropdownProps> = ({
       {/* Custom Dropdown Menu */}
       {isOpen && !disabled && (
         <div
-          className={`absolute left-0 sm:min-w-[340px] max-w-[480px] mt-1.5 z-50 rounded-2xl border shadow-xl max-h-[350px] overflow-y-auto overflow-x-hidden p-1.5 transition-all animate-in fade-in zoom-in-95 duration-100 ${
+          className={`absolute top-full left-0 w-full mt-1.5 z-50 rounded-2xl border shadow-xl max-h-[350px] overflow-y-auto overflow-x-hidden p-1.5 transition-all animate-in fade-in zoom-in-95 duration-100 ${
             isWarm
               ? 'bg-white border-stone-200 text-stone-900 shadow-stone-900/10'
               : 'bg-slate-900 border-slate-800 text-slate-100 shadow-black/40'
@@ -261,7 +262,7 @@ export const ProjectSelectDropdown: React.FC<ProjectSelectDropdownProps> = ({
 
                           <div className="flex items-center gap-2 shrink-0">
                             <span className="font-mono text-xs text-stone-400 dark:text-slate-400">
-                              HK${p.totalContractAmount.toLocaleString()}
+                              {formatCurrency(p.totalContractAmount, p.currency)}
                             </span>
                             {isSelected ? (
                               <Check
