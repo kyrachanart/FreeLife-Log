@@ -330,11 +330,11 @@ export const BatchDeleteProjectsModal: React.FC<BatchDeleteProjectsModalProps> =
         )}
 
         {/* Footer Actions */}
-        <div className="flex flex-wrap items-center justify-between gap-2.5 pt-3 border-t border-stone-200/60 dark:border-slate-800 shrink-0">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 w-full pt-3 sm:pt-4 border-t border-stone-200/60 dark:border-slate-800 shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${
+            className={`px-3 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition-colors cursor-pointer whitespace-nowrap sm:flex-none sm:w-auto shrink-0 ${
               isWarm
                 ? 'border-stone-300 hover:bg-stone-100 text-stone-700'
                 : 'border-slate-700 hover:bg-slate-800 text-slate-300'
@@ -343,21 +343,21 @@ export const BatchDeleteProjectsModal: React.FC<BatchDeleteProjectsModalProps> =
             關閉
           </button>
 
-          <div className="flex items-center gap-2">
+          <div className="flex-1 flex flex-row items-center gap-1.5 sm:gap-2 justify-end w-full sm:w-auto">
             {/* Move Button */}
             {onMoveProjects && !showConfirmStep && !showMoveSection && (
               <button
                 type="button"
                 disabled={selectedIds.size === 0}
                 onClick={() => setShowMoveSection(true)}
-                className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
+                className={`flex-1 px-2 sm:px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition-all whitespace-nowrap ${
                   selectedIds.size > 0
                     ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md cursor-pointer'
                     : 'bg-stone-200 dark:bg-slate-800 text-stone-400 dark:text-slate-500 cursor-not-allowed'
                 }`}
               >
-                <FolderInput size={14} />
-                <span>移動至其他 Client ({selectedIds.size})</span>
+                <FolderInput size={14} className="hidden sm:inline-block shrink-0" />
+                <span>移動至 Client ({selectedIds.size})</span>
               </button>
             )}
 
@@ -369,13 +369,13 @@ export const BatchDeleteProjectsModal: React.FC<BatchDeleteProjectsModalProps> =
                     type="button"
                     disabled={selectedIds.size === 0}
                     onClick={handleConfirmUnarchiveAction}
-                    className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all border ${
+                    className={`flex-1 px-2 sm:px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition-all border whitespace-nowrap ${
                       selectedIds.size > 0
                         ? 'bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:hover:bg-blue-900/60 dark:text-blue-300 border-blue-300 dark:border-blue-800 cursor-pointer shadow-xs active:scale-95'
                         : 'bg-slate-100/60 dark:bg-slate-800/40 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-800 cursor-not-allowed opacity-60'
                     }`}
                   >
-                    <ArchiveRestore size={14} />
+                    <ArchiveRestore size={14} className="hidden sm:inline-block shrink-0" />
                     <span>取消封存 ({selectedIds.size})</span>
                   </button>
                 )
@@ -385,13 +385,13 @@ export const BatchDeleteProjectsModal: React.FC<BatchDeleteProjectsModalProps> =
                     type="button"
                     disabled={selectedIds.size === 0}
                     onClick={handleConfirmArchiveAction}
-                    className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all border ${
+                    className={`flex-1 px-2 sm:px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition-all border whitespace-nowrap ${
                       selectedIds.size > 0
                         ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-700 cursor-pointer shadow-xs active:scale-95'
                         : 'bg-slate-100/60 dark:bg-slate-800/40 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-800 cursor-not-allowed opacity-60'
                     }`}
                   >
-                    <Archive size={14} />
+                    <Archive size={14} className="hidden sm:inline-block shrink-0" />
                     <span>封存專案 ({selectedIds.size})</span>
                   </button>
                 )
@@ -404,22 +404,22 @@ export const BatchDeleteProjectsModal: React.FC<BatchDeleteProjectsModalProps> =
                 type="button"
                 disabled={selectedIds.size === 0}
                 onClick={() => setShowConfirmStep(true)}
-                className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
+                className={`flex-1 px-2 sm:px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition-all whitespace-nowrap ${
                   selectedIds.size > 0
                     ? 'bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/60 cursor-pointer'
                     : 'bg-stone-200 dark:bg-slate-800 text-stone-400 dark:text-slate-500 cursor-not-allowed'
                 }`}
               >
-                <Trash2 size={14} />
+                <Trash2 size={14} className="hidden sm:inline-block shrink-0" />
                 <span>刪除專案 ({selectedIds.size})</span>
               </button>
             ) : (
               <button
                 type="button"
                 onClick={handleConfirmDeleteAction}
-                className="px-5 py-2.5 rounded-xl text-xs font-black bg-rose-700 hover:bg-rose-800 text-white shadow-lg shadow-rose-900/40 flex items-center gap-1.5 transition-all cursor-pointer animate-pulse"
+                className="flex-1 px-3 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-black bg-rose-700 hover:bg-rose-800 text-white shadow-lg shadow-rose-900/40 flex items-center justify-center gap-1.5 transition-all cursor-pointer animate-pulse whitespace-nowrap"
               >
-                <Trash2 size={14} />
+                <Trash2 size={14} className="hidden sm:inline-block shrink-0" />
                 <span>確定一鍵刪除 ({selectedIds.size} 項)</span>
               </button>
             ))}
