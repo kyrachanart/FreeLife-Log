@@ -1689,6 +1689,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
         onMoveProjects={onMoveProjects}
         onArchiveProjects={handleBatchArchiveProjects}
         onUnarchiveProjects={handleBatchUnarchiveProjects}
+        existingClients={existingClients}
       />
     </div>
   );

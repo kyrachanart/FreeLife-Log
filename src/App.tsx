@@ -32,6 +32,7 @@ import {
   saveToLocalStorage,
   clearAllLocalStorage,
 } from './utils/storage';
+import { getClientColor } from './utils/clientColors';
 
 function AppContent() {
   const { theme } = useTheme();
@@ -313,18 +314,20 @@ function AppContent() {
   const handleMoveProjects = useCallback((projectIds: string[], targetClientName: string) => {
     if (projectIds.length === 0 || !targetClientName.trim()) return;
     const trimmedClient = targetClientName.trim();
+    const clientClr = getClientColor(trimmedClient);
     setProjects((prev) =>
       prev.map((p) => {
         if (projectIds.includes(p.id)) {
           return {
             ...p,
             clientName: trimmedClient,
+            clientColor: clientClr,
           };
         }
         return p;
       })
     );
-    showToast(`🚚 已成功將 ${projectIds.length} 個 Project 移動至 Client「${trimmedClient}」！`);
+    showToast(`🚚 已成功將 ${projectIds.length} 個 Project 轉移至 Client「${trimmedClient}」！`);
   }, [showToast]);
 
   // Batch archive projects with Running Timer Protection

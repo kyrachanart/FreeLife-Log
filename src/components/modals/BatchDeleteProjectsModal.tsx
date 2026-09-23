@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Trash2, X, CheckSquare, Square, AlertTriangle, Layers, FolderInput, Archive, ArchiveRestore } from 'lucide-react';
+import { Trash2, X, CheckSquare, Square, AlertTriangle, Layers, FolderInput, Archive, ArchiveRestore, Plus } from 'lucide-react';
 import { Project } from '../../types';
 import { useTheme } from '../../ThemeContext';
-import { getClientColor } from '../../utils/clientColors';
+import { getClientColor, saveClientColor } from '../../utils/clientColors';
 
 interface BatchDeleteProjectsModalProps {
   isOpen: boolean;
@@ -13,6 +13,7 @@ interface BatchDeleteProjectsModalProps {
   onArchiveProjects?: (projectIds: string[]) => void;
   onUnarchiveProjects?: (projectIds: string[]) => void;
   mode?: 'active' | 'archived';
+  existingClients?: string[];
 }
 
 export const BatchDeleteProjectsModal: React.FC<BatchDeleteProjectsModalProps> = ({
@@ -24,13 +25,16 @@ export const BatchDeleteProjectsModal: React.FC<BatchDeleteProjectsModalProps> =
   onArchiveProjects,
   onUnarchiveProjects,
   mode = 'active',
+  existingClients = [],
 }) => {
   const { theme } = useTheme();
   const isWarm = theme === 'warm';
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showConfirmStep, setShowConfirmStep] = useState(false);
-  const [targetClientName, setTargetClientName] = useState('');
+  const [selectedExistingClient, setSelectedExistingClient] = useState('');
+  const [newClientInput, setNewClientInput] = useState('');
+  const [isCreatingNewMode, setIsCreatingNewMode] = useState(false);
   const [showMoveSection, setShowMoveSection] = useState(false);
 
   // Force reset selections and sub-steps whenever modal opens, closes, or mode changes
@@ -38,7 +42,9 @@ export const BatchDeleteProjectsModal: React.FC<BatchDeleteProjectsModalProps> =
     setSelectedIds(new Set());
     setShowConfirmStep(false);
     setShowMoveSection(false);
-    setTargetClientName('');
+    setSelectedExistingClient('');
+    setNewClientInput('');
+    setIsCreatingNewMode(false);
   }, [isOpen, mode]);
 
   // Group projects by clientName
@@ -54,10 +60,57 @@ export const BatchDeleteProjectsModal: React.FC<BatchDeleteProjectsModalProps> =
     return map;
   }, [projects]);
 
-  // Unique client names for target selection dropdown
-  const existingClients = useMemo(() => {
-    return Array.from(new Set(projects.map((p) => (p.clientName || '未分類客戶').trim()).filter(Boolean)));
-  }, [projects]);
+  // Unique client names for target selection dropdown & client count check
+  const allClients = useMemo(() => {
+    const set = new Set<string>();
+    if (existingClients && existingClients.length > 0) {
+      existingClients.forEach((c) => {
+        if (c.trim()) set.add(c.trim());
+      });
+    }
+    projects.forEach((p) => {
+      const c = (p.clientName || '未分類客戶').trim();
+      if (c) set.add(c);
+    });
+    return Array.from(set);
+  }, [existingClients, projects]);
+
+  const canShowTransferButton = Boolean(onMoveProjects) && allClients.length >= 2;
+
+  // Resolved target client name
+  const rawTargetName = isCreatingNewMode ? newClientInput.trim() : selectedExistingClient.trim();
+
+  // Find matching existing client case-insensitively
+  const matchingExistingClient = useMemo(() => {
+    if (!rawTargetName) return null;
+    return allClients.find((c) => c.toLowerCase() === rawTargetName.toLowerCase()) || null;
+  }, [rawTargetName, allClients]);
+
+  // Target client name to apply
+  const resolvedTargetClient = matchingExistingClient || rawTargetName;
+
+  // Selected projects objects
+  const selectedProjects = useMemo(() => {
+    return projects.filter((p) => selectedIds.has(p.id));
+  }, [projects, selectedIds]);
+
+  // Check if ALL selected projects are already under this target client
+  const isAllAlreadyInTarget = useMemo(() => {
+    if (!resolvedTargetClient || selectedProjects.length === 0) return false;
+    return selectedProjects.every(
+      (p) => (p.clientName || '未分類客戶').trim().toLowerCase() === resolvedTargetClient.toLowerCase()
+    );
+  }, [resolvedTargetClient, selectedProjects]);
+
+  // Is this a brand new client?
+  const isBrandNewClient = Boolean(isCreatingNewMode && rawTargetName && !matchingExistingClient);
+
+  // Can confirm transfer?
+  const canConfirmTransfer = Boolean(
+    resolvedTargetClient &&
+    selectedIds.size > 0 &&
+    !isAllAlreadyInTarget
+  );
 
   if (!isOpen) return null;
 
@@ -91,11 +144,16 @@ export const BatchDeleteProjectsModal: React.FC<BatchDeleteProjectsModalProps> =
   };
 
   const handleConfirmMoveAction = () => {
-    if (selectedIds.size === 0 || !targetClientName.trim() || !onMoveProjects) return;
-    onMoveProjects(Array.from(selectedIds), targetClientName.trim());
+    if (!canConfirmTransfer || !resolvedTargetClient || !onMoveProjects) return;
+    if (isBrandNewClient) {
+      saveClientColor(resolvedTargetClient, getClientColor(resolvedTargetClient));
+    }
+    onMoveProjects(Array.from(selectedIds), resolvedTargetClient);
     setSelectedIds(new Set());
     setShowMoveSection(false);
-    setTargetClientName('');
+    setSelectedExistingClient('');
+    setNewClientInput('');
+    setIsCreatingNewMode(false);
     onClose();
   };
 
@@ -132,8 +190,8 @@ export const BatchDeleteProjectsModal: React.FC<BatchDeleteProjectsModalProps> =
               </h3>
               <p className="text-xs text-stone-500 dark:text-slate-400 mt-0.5">
                 {mode === 'archived'
-                  ? '勾選專案即可進行批次移動、批量取消封存或刪除'
-                  : '勾選專案即可進行批次移動、批量封存或刪除'}
+                  ? '勾選專案即可進行批次轉移、批量取消封存或刪除'
+                  : '勾選專案即可進行批次轉移、批量封存或刪除'}
               </p>
             </div>
           </div>
@@ -248,67 +306,131 @@ export const BatchDeleteProjectsModal: React.FC<BatchDeleteProjectsModalProps> =
           )}
         </div>
 
-        {/* Move to Client Section (if triggered) */}
+        {/* Transfer Client Section (if triggered) */}
         {showMoveSection && (
           <div className="p-3.5 rounded-2xl bg-emerald-50/90 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 text-xs my-2 animate-in fade-in duration-150 space-y-2.5">
             <div className="flex items-center gap-1.5 font-extrabold text-emerald-800 dark:text-emerald-200">
               <FolderInput size={16} />
-              <span>將已選 {selectedIds.size} 個專案移動至指定 Client 資料夾：</span>
+              <span>將已選 {selectedIds.size} 個專案轉移至 Client：</span>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-              <input
-                type="text"
-                value={targetClientName}
-                onChange={(e) => setTargetClientName(e.target.value)}
-                placeholder="輸入或選擇目標 Client 名稱..."
-                className={`flex-1 px-3 py-2 rounded-xl border text-xs font-bold outline-none ${
-                  isWarm
-                    ? 'bg-white border-stone-300 text-stone-800 focus:border-emerald-500'
-                    : 'bg-slate-900 border-slate-700 text-slate-100 focus:border-emerald-500'
-                }`}
-              />
+            <div className="flex items-center gap-2">
+              {!isCreatingNewMode ? (
+                <>
+                  {/* Left: Existing Client Select Dropdown */}
+                  <select
+                    value={selectedExistingClient}
+                    onChange={(e) => setSelectedExistingClient(e.target.value)}
+                    className={`flex-1 px-3 py-2.5 rounded-xl border text-xs font-bold cursor-pointer outline-none transition-all ${
+                      isWarm
+                        ? 'bg-white border-stone-300 text-stone-700 focus:border-emerald-500'
+                        : 'bg-slate-800 border-slate-700 text-slate-200 focus:border-emerald-500'
+                    }`}
+                  >
+                    <option value="">快速選擇現有 Client...</option>
+                    {allClients.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
 
-              {existingClients.length > 0 && (
-                <select
-                  onChange={(e) => {
-                    if (e.target.value) setTargetClientName(e.target.value);
-                  }}
-                  className={`px-2.5 py-2 rounded-xl border text-xs font-bold cursor-pointer outline-none ${
-                    isWarm
-                      ? 'bg-stone-100 border-stone-300 text-stone-700'
-                      : 'bg-slate-800 border-slate-700 text-slate-200'
-                  }`}
-                >
-                  <option value="">快速選擇現有 Client...</option>
-                  {existingClients.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
+                  {/* Plus Button to toggle new client input */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCreatingNewMode(true);
+                      setSelectedExistingClient('');
+                    }}
+                    title="建立新 Client"
+                    aria-label="建立新 Client"
+                    className={`whitespace-nowrap flex items-center gap-1 px-3 py-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                      isWarm
+                        ? 'bg-emerald-100/70 hover:bg-emerald-200/80 border-emerald-300 text-emerald-800'
+                        : 'bg-emerald-900/40 hover:bg-emerald-900/70 border-emerald-700 text-emerald-300'
+                    }`}
+                  >
+                    <Plus size={14} className="shrink-0" />
+                    <span>建立</span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  {/* New Client Text Input */}
+                  <input
+                    type="text"
+                    autoFocus
+                    value={newClientInput}
+                    onChange={(e) => setNewClientInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && canConfirmTransfer) {
+                        e.preventDefault();
+                        handleConfirmMoveAction();
+                      }
+                    }}
+                    placeholder="輸入新 Client 名稱..."
+                    className={`flex-1 px-3 py-2.5 rounded-xl border text-xs font-bold outline-none transition-all ${
+                      isWarm
+                        ? 'bg-white border-stone-300 text-stone-800 focus:border-emerald-500'
+                        : 'bg-slate-900 border-slate-700 text-slate-100 focus:border-emerald-500'
+                    }`}
+                  />
+
+                  {/* Cancel New Mode Button (X) */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCreatingNewMode(false);
+                      setNewClientInput('');
+                    }}
+                    title="取消建立"
+                    aria-label="取消建立"
+                    className={`whitespace-nowrap flex items-center gap-1 px-3 py-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                      isWarm
+                        ? 'bg-stone-100 hover:bg-stone-200 border-stone-300 text-stone-600'
+                        : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300'
+                    }`}
+                  >
+                    <X size={14} className="shrink-0" />
+                    <span>取消</span>
+                  </button>
+                </>
               )}
             </div>
+
+            {/* Same Client warning hint if user selects/inputs same client */}
+            {isAllAlreadyInTarget && (
+              <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                ⚠️ 已選專案已屬於 Client「{resolvedTargetClient}」，無須重複轉移。
+              </p>
+            )}
 
             <div className="flex items-center justify-end gap-2 pt-1">
               <button
                 type="button"
-                onClick={() => setShowMoveSection(false)}
+                onClick={() => {
+                  setShowMoveSection(false);
+                  setSelectedExistingClient('');
+                  setNewClientInput('');
+                  setIsCreatingNewMode(false);
+                }}
                 className="px-3 py-1.5 rounded-lg text-xs font-bold text-stone-500 hover:text-stone-700 dark:text-slate-400 dark:hover:text-slate-200 cursor-pointer"
               >
-                取消移動
+                取消
               </button>
               <button
                 type="button"
-                disabled={!targetClientName.trim()}
+                disabled={!canConfirmTransfer}
                 onClick={handleConfirmMoveAction}
-                className={`px-4 py-1.5 rounded-lg text-xs font-black text-white transition-all cursor-pointer ${
-                  targetClientName.trim()
-                    ? 'bg-emerald-600 hover:bg-emerald-700 shadow-md'
-                    : 'bg-stone-300 dark:bg-slate-800 text-stone-500 cursor-not-allowed'
+                className={`px-4 py-1.5 rounded-lg text-xs font-black text-white transition-all ${
+                  canConfirmTransfer
+                    ? 'bg-emerald-600 hover:bg-emerald-700 shadow-md cursor-pointer'
+                    : 'bg-stone-300 dark:bg-slate-800 text-stone-500 cursor-not-allowed opacity-60'
                 }`}
               >
-                確認移動 ({selectedIds.size} 項)
+                {isBrandNewClient
+                  ? `建立並轉移 (${selectedIds.size})`
+                  : `確認轉移 (${selectedIds.size})`}
               </button>
             </div>
           </div>
@@ -344,8 +466,8 @@ export const BatchDeleteProjectsModal: React.FC<BatchDeleteProjectsModalProps> =
           </button>
 
           <div className="flex-1 flex flex-row items-center gap-1.5 sm:gap-2 justify-end w-full sm:w-auto">
-            {/* Move Button */}
-            {onMoveProjects && !showConfirmStep && !showMoveSection && (
+            {/* Transfer Client Button (Hidden when total clients < 2) */}
+            {canShowTransferButton && !showConfirmStep && !showMoveSection && (
               <button
                 type="button"
                 disabled={selectedIds.size === 0}
@@ -357,7 +479,7 @@ export const BatchDeleteProjectsModal: React.FC<BatchDeleteProjectsModalProps> =
                 }`}
               >
                 <FolderInput size={14} className="hidden sm:inline-block shrink-0" />
-                <span>移動至 Client ({selectedIds.size})</span>
+                <span>轉移 Client ({selectedIds.size})</span>
               </button>
             )}
 
